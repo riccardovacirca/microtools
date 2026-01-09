@@ -1054,7 +1054,7 @@ git_push() {
 
   # Update /workspace/project if it's a git repository
   if [ -d "/workspace/project/.git" ]; then
-    update_git_repo "/workspace/project" "microservice"
+    update_git_repo "/workspace/project" "microtools"
   else
     info "/workspace/project is not a git repository, skipping"
   fi
