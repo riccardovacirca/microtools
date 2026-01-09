@@ -22,8 +22,8 @@
 
 - [OK]
   gli script di gestione dello stato di gunicorn dovrebbero essere integrati
-  con lo script wa con dei subcommands dedicati
-  es. wa gunicorn start|stop|restart|status.
+  con lo script mt con dei subcommands dedicati
+  es. mt gunicorn start|stop|restart|status.
 
 - [OK] Verificare come vengono usate le variabili del file .env: PROJECT_NAME e
   NAME. dal momento che hanno lo stesso valore potremmo mantenere solo
@@ -32,7 +32,7 @@
 - Verificre se le variabili POLL_INTERVAL THREAD_COUNT possono essere rimosse
 
 - [OK]
-  modificare il comando wa update in 'wa git push' e aggiungere il comando
+  modificare il comando mt update in 'wa git push' e aggiungere il comando
   'wa git pull' e inoltre aggiungere il comando 'wa git sync' per eseguire
   entrambe le operazioni nell'ordine più sensato
 
@@ -96,8 +96,8 @@
     s6-svc -u /path/to/s6/services/<nome_servizio>
 
 - [OK]
-  Attualmente esiste un comando wa gui build. Questo comando va sostituito con
-  il comando wa vite wa vite build|start|stop|restart|status
+  Attualmente esiste un comando mt gui build. Questo comando va sostituito con
+  il comando mt vite mt vite build|start|stop|restart|status
 
 - [OK]
   Lo script setup.sh a partire dalla riga 237 provvede ad installare i servizi
@@ -121,7 +121,7 @@
   Il microservizio mod_status deve essere tra i servizi DEFAULT_ENABLED_SERVICES
 
 - [OK]
-  Nello script wa AG_STATUS si riferisce a uvicorn. modificare il nome AG_ in
+  Nello script mt AG_STATUS si riferisce a uvicorn. modificare il nome AG_ in
   UVICORN_ e anche AG_ICON
 
 - [OK]
@@ -137,13 +137,15 @@
 - [OK]
   rinominare il progetto in microtools
 
-- rinominare il comando wa in mt
+- [OK]
+  rinominare il comando wa in mt
 
 - le cartelle project e install potrebbero essere prefissate con un . come le
   altre tabelle di servizio. la cartella project
 
-- il comando wa git push potrebbe avere una opzione -m per il messaggio di commit
+- il comando mt git push potrebbe avere una opzione -m per il messaggio di commit
   se non specificato viene usato il messaggio di default
 
-- Verificare che il modulo mod_status della gui sia collegato correttamente
-  agli endpoint.
+- Verificare che il modulo /workspace/gui/src/mod_status della gui sia collegato
+  correttamente all'endpoint /api/status/info ed esponga graficamente il valore
+  restituito da esso.

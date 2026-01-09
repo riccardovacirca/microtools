@@ -1,19 +1,19 @@
 <script>
-  import { onMount } from 'svelte';
+  import { onMount } from "svelte";
 
-  let systemInfo = null;
+  let Info = null;
   let loading = true;
   let error = null;
 
-  async function loadSystemInfo() {
+  async function loadInfo() {
     loading = true;
     error = null;
     try {
-      const response = await fetch('/api/status/system');
+      const response = await fetch("/api/status/info");
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      systemInfo = await response.json();
+      Info = await response.json();
     } catch (e) {
       error = e.message;
     } finally {
@@ -22,52 +22,44 @@
   }
 
   onMount(() => {
-    loadSystemInfo();
+    loadInfo();
   });
 </script>
 
-<div class="system-info">
+<div class="project-info">
   <div class="section-header">
-    <h2>System Information</h2>
-    <button class="refresh-btn" on:click={loadSystemInfo}>Refresh</button>
+    <h2>Project Information</h2>
+    <button class="refresh-btn" on:click={loadInfo}>Refresh</button>
   </div>
 
   {#if loading}
-    <div class="loading">Loading system information...</div>
+    <div class="loading">Loading project information...</div>
   {:else if error}
     <div class="error">Error: {error}</div>
-  {:else if systemInfo}
+  {:else if Info}
     <div class="info-grid">
       <div class="info-item">
-        <span class="label">Hostname:</span>
-        <span class="value">{systemInfo.hostname}</span>
+        <span class="label">ID:</span>
+        <span class="value">{Info.id}</span>
       </div>
       <div class="info-item">
-        <span class="label">Operating System:</span>
-        <span class="value">{systemInfo.os_name}</span>
+        <span class="label">Version:</span>
+        <span class="value">{Info.version}</span>
       </div>
       <div class="info-item">
-        <span class="label">OS Version:</span>
-        <span class="value">{systemInfo.os_version}</span>
+        <span class="label">Created At:</span>
+        <span class="value">{Info.created_at}</span>
       </div>
       <div class="info-item">
-        <span class="label">Architecture:</span>
-        <span class="value">{systemInfo.architecture}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">CPU Cores:</span>
-        <span class="value">{systemInfo.cpu_cores}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Total Memory:</span>
-        <span class="value">{systemInfo.total_memory_mb} MB</span>
+        <span class="label">Updated At:</span>
+        <span class="value">{Info.updated_at}</span>
       </div>
     </div>
   {/if}
 </div>
 
 <style>
-  .system-info {
+  .project-info {
     background: white;
     border-radius: 8px;
     padding: 20px;
@@ -89,7 +81,7 @@
 
   .refresh-btn {
     padding: 8px 16px;
-    background: #2196F3;
+    background: #2196f3;
     color: white;
     border: none;
     border-radius: 4px;
@@ -98,7 +90,7 @@
   }
 
   .refresh-btn:hover {
-    background: #1976D2;
+    background: #1976d2;
   }
 
   .loading,

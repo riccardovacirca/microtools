@@ -340,8 +340,8 @@ if [ -d /workspace/project/install/bin ]; then
   info "Creating symbolic links to project/install/bin utilities..."
 
   # Remove existing files/symlinks and create new symlinks
-  rm -f /workspace/bin/wa
-  ln -sf /workspace/project/install/bin/wa /workspace/bin/wa || warn "Failed to create wa symlink"
+  rm -f /workspace/bin/mt
+  ln -sf /workspace/project/install/bin/wa /workspace/bin/mt || warn "Failed to create wa symlink"
 fi
 
 # Add /workspace/bin to system PATH
@@ -605,7 +605,7 @@ if [ "$SQLITE3_ENABLED" = "y" ]; then
   if [ -f /workspace/database/mod_status/sqlite3_install.sql ]; then
     info "  Applying mod_status schema (SQLite3)..."
     cd /workspace/database/mod_status
-    /workspace/bin/wa db -f sqlite3_install.sql || warn "Failed to apply mod_status schema"
+    /workspace/bin/mt db -f sqlite3_install.sql || warn "Failed to apply mod_status schema"
     cd /workspace
   fi
 
@@ -632,7 +632,7 @@ if [ "$MARIADB_ENABLED" = "y" ]; then
   if [ -f /workspace/database/mod_status/mariadb_install.sql ]; then
     info "  Applying mod_status schema (MySQL)..."
     cd /workspace/database/mod_status
-    /workspace/bin/wa db -f mariadb_install.sql || warn "Failed to apply mod_status schema"
+    /workspace/bin/mt db -f mariadb_install.sql || warn "Failed to apply mod_status schema"
     cd /workspace
   fi
 
@@ -671,7 +671,7 @@ if [ "$PGSQL_ENABLED" = "y" ]; then
   if [ -f /workspace/database/mod_status/postgres_install.sql ]; then
     info "  Applying mod_status schema (PostgreSQL)..."
     cd /workspace/database/mod_status
-    /workspace/bin/wa db -f postgres_install.sql || warn "Failed to apply mod_status schema"
+    /workspace/bin/mt db -f postgres_install.sql || warn "Failed to apply mod_status schema"
     cd /workspace
   fi
 
@@ -689,7 +689,7 @@ if [ -d /workspace/install/services/mod_status ]; then
   cp -r /workspace/install/services/mod_status /workspace/services/
 
   # Build the C++ microservice
-  /workspace/bin/wa service build -n mod_status || warn "Failed to build mod_status microservice"
+  /workspace/bin/mt service build -n mod_status || warn "Failed to build mod_status microservice"
 
   # Microservice will be started by s6 if enabled
   info "mod_status built successfully. Will be enabled later in setup."
@@ -706,7 +706,7 @@ install_claude
 # Configure ODBC from .env settings
 if [ -f /workspace/install/odbc/odbc.ini.template ]; then
   info "Configuring ODBC data sources..."
-  /workspace/bin/wa db conf || warn "Failed to configure ODBC"
+  /workspace/bin/mt db conf || warn "Failed to configure ODBC"
 
   # Create symbolic link to odbc.ini in workspace config directory
   info "Creating symbolic link to ODBC configuration..."

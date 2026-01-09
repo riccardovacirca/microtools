@@ -61,7 +61,7 @@ progetto.
 ## Gestione del progetto
 
 La gestione di un progetto applicativo con Microtools avviene mediante l'uso
-dello script sh bin/wa. Questo script può essere utilizzato per:
+dello script sh bin/mt. Questo script può essere utilizzato per:
 
 - Start/Stop/Restart di un servizio di sistema o di un microservizio
 - Build di un microservizio C++ o del frontend Vite/Svelte

@@ -1,13 +1,7 @@
 <script>
-  import SystemInfo from './SystemInfo.svelte';
-  import ProjectInfo from './ProjectInfo.svelte';
+  let activeTab = "project";
 
-  let activeTab = 'system';
-
-  const tabs = [
-    { id: 'system', label: 'System Information' },
-    { id: 'project', label: 'Project Information' }
-  ];
+  const tabs = [{ id: "project", label: "Project Information" }];
 
   function selectTab(tabId) {
     activeTab = tabId;
@@ -16,27 +10,10 @@
 
 <div class="status-container">
   <header class="status-header">
-    <h1>System Status Dashboard</h1>
-    <p>System and project information</p>
+    <p>Project information</p>
   </header>
-
-  <nav class="tabs">
-    {#each tabs as tab}
-      <button
-        class="tab {activeTab === tab.id ? 'active' : ''}"
-        on:click={() => selectTab(tab.id)}
-      >
-        {tab.label}
-      </button>
-    {/each}
-  </nav>
-
   <main class="tab-content">
-    {#if activeTab === 'system'}
-      <SystemInfo />
-    {:else if activeTab === 'project'}
-      <ProjectInfo />
-    {/if}
+    <Info />
   </main>
 </div>
 
@@ -88,8 +65,8 @@
   }
 
   .tab.active {
-    color: #2196F3;
-    border-bottom-color: #2196F3;
+    color: #2196f3;
+    border-bottom-color: #2196f3;
   }
 
   .tab-content {
