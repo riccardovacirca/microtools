@@ -11,6 +11,9 @@ std::unique_ptr<mt::Logger> logger;
 std::unique_ptr<mt::Redis> redis_conn;
 std::string db_dsn;
 
+// Global HTTP server instance
+httplib::Server* g_server = nullptr;
+
 // Signal handler for graceful shutdown
 volatile sig_atomic_t shutdown_requested = 0;
 
@@ -19,6 +22,11 @@ void signal_handler(int signal) {
     logger->info("Shutdown signal received");
   }
   shutdown_requested = 1;
+
+  // Stop HTTP server to unblock listen()
+  if (g_server) {
+    g_server->stop();
+  }
 }
 
 // GET /api/status/info - Runtime information with Redis cache and DB fallback
@@ -134,6 +142,7 @@ int main(int argc, char* argv[]) {
 
   // Create HTTP server
   httplib::Server server;
+  g_server = &server;
 
   // Register route
   server.Get("/api/status/info", handle_info);

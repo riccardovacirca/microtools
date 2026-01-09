@@ -2,6 +2,11 @@
 # Auto-generated from template - DO NOT EDIT MANUALLY
 # Use 'wa db conf' to regenerate from .env settings
 
+# Generic DSN - Points to the enabled database
+[{{PROJECT_NAME}}]
+Description=Default database for {{PROJECT_NAME}}
+{{GENERIC_DSN_CONFIG}}
+
 # SQLite3 DSN - Local file-based database
 [{{PROJECT_NAME}}_sqlite]
 Description=SQLite3 database for {{PROJECT_NAME}}

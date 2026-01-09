@@ -496,8 +496,13 @@ service_restart() {
   fi
 
   info "Restarting $SERVICE_NAME service..."
-  /command/s6-svc -r "/run/service/$SERVICE_NAME" 2>/dev/null || error "Failed to restart service"
 
+  # Stop service
+  /command/s6-svc -d "/run/service/$SERVICE_NAME" 2>/dev/null
+  sleep 1
+
+  # Start service
+  /command/s6-svc -u "/run/service/$SERVICE_NAME" 2>/dev/null || error "Failed to restart service"
   sleep 1
 
   if /command/s6-svstat "/run/service/$SERVICE_NAME" | grep -q "^up"; then
@@ -1171,7 +1176,32 @@ db_configure_odbc() {
   PGSQL_HOST=${PGSQL_HOST:-$PGSQL_CONTAINER}
   PGSQL_PORT=${PGSQL_PORT:-5432}
 
-  # Replace placeholders
+  # Generate generic DSN configuration based on enabled database
+  if [ "$PGSQL_ENABLED" = "y" ]; then
+    GENERIC_DSN_CONFIG="Driver=PostgreSQL\\
+Servername=$PGSQL_HOST\\
+Port=$PGSQL_PORT\\
+Database=$PGSQL_NAME\\
+Username=$PGSQL_USER\\
+Password=$PGSQL_PASSWORD\\
+ReadOnly=No\\
+Protocol=7.4-1"
+  elif [ "$MARIADB_ENABLED" = "y" ]; then
+    GENERIC_DSN_CONFIG="Driver=MariaDB\\
+Server=$MARIADB_HOST\\
+Port=$MARIADB_PORT\\
+Database=$MARIADB_NAME\\
+User=$MARIADB_USER\\
+Password=$MARIADB_PASSWORD\\
+Option=3"
+  else
+    # Default to SQLite3
+    GENERIC_DSN_CONFIG="Driver=SQLite3\\
+Database=$SQLITE3_PATH\\
+Timeout=5000"
+  fi
+
+  # Replace placeholders (except GENERIC_DSN_CONFIG)
   ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PROJECT_NAME}}|$PROJECT_NAME|g")
   ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{SQLITE3_CONNECTION}}|$SQLITE3_PATH|g")
   ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{MARIADB_HOST}}|$MARIADB_HOST|g")
@@ -1185,8 +1215,17 @@ db_configure_odbc() {
   ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PGSQL_USER}}|$PGSQL_USER|g")
   ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PGSQL_PASSWORD}}|$PGSQL_PASSWORD|g")
 
+  # Replace generic DSN config placeholder with actual config (preserving newlines)
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{GENERIC_DSN_CONFIG}}|__GENERIC_DSN_PLACEHOLDER__|g")
+
   # Write to /etc/odbc.ini
-  echo "$ODBC_CONTENT" > /etc/odbc.ini || error "Failed to write /etc/odbc.ini (permission denied?)"
+  echo "$ODBC_CONTENT" | while IFS= read -r line; do
+    if echo "$line" | grep -q "__GENERIC_DSN_PLACEHOLDER__"; then
+      printf "%s\n" "$GENERIC_DSN_CONFIG" | sed 's/\\$//'
+    else
+      echo "$line"
+    fi
+  done > /etc/odbc.ini || error "Failed to write /etc/odbc.ini (permission denied?)"
 
   info "ODBC configuration written to /etc/odbc.ini"
 
@@ -1196,6 +1235,7 @@ db_configure_odbc() {
   info "ODBC configuration accessible at /workspace/conf/odbc.ini"
 
   info "Available DSNs:"
+  info "  - ${PROJECT_NAME}          (Default - points to enabled database)"
   info "  - ${PROJECT_NAME}_sqlite   (SQLite3)"
   info "  - ${PROJECT_NAME}_mariadb  (MariaDB)"
   info "  - ${PROJECT_NAME}_postgres (PostgreSQL)"
