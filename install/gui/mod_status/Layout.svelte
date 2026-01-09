@@ -1,4 +1,4 @@
-<script type="module">
+<script>
   import Info from "./Info.svelte";
 
   let activeTab = "project";
