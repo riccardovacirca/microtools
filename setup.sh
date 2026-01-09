@@ -341,7 +341,7 @@ if [ -d /workspace/project/install/bin ]; then
 
   # Remove existing files/symlinks and create new symlinks
   rm -f /workspace/bin/mt
-  ln -sf /workspace/project/install/bin/mt /workspace/bin/mt || warn "Failed to create wa symlink"
+  ln -sf /workspace/project/install/bin/mt /workspace/bin/mt || warn "Failed to create mt symlink"
 fi
 
 # Add /workspace/bin to system PATH
