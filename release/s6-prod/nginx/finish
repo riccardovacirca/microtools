@@ -1,0 +1,4 @@
+#!/bin/sh
+# Graceful shutdown of nginx
+nginx -s quit 2>/dev/null || true
+exit 0

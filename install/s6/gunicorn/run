@@ -1,0 +1,3 @@
+#!/bin/sh
+cd /workspace/api
+exec /usr/local/bin/gunicorn -c gunicorn_conf.py main:app

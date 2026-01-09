@@ -1,0 +1,173 @@
+# Multi-stage Dockerfile for Production Release
+# Build optimized production image with s6-overlay, nginx, gunicorn, and compiled services
+
+# =============================================================================
+# Stage 1: Build Frontend (Svelte)
+# =============================================================================
+FROM node:20-slim AS frontend-builder
+
+WORKDIR /build
+
+# Copy package files and install dependencies
+COPY gui/package*.json ./
+RUN npm ci --production=false
+
+# Copy source and build
+COPY gui/ ./
+RUN npm run build
+
+# Output: /build/dist/ contains compiled static files
+
+# =============================================================================
+# Stage 2: Collect C++ Binaries
+# =============================================================================
+FROM scratch AS cpp-binaries
+
+# Copy compiled binaries from development environment
+COPY services/mod_status/bin/ /binaries/mod_status/
+
+# Add other microservices binaries here as needed
+# COPY services/other_service/bin/ /binaries/other_service/
+
+# =============================================================================
+# Stage 3: Production Image
+# =============================================================================
+FROM ubuntu:24.04
+
+# Build arguments
+ARG VERSION=unknown
+ARG BUILD_DATE
+ARG S6_OVERLAY_VERSION=3.2.1.0
+
+# Metadata
+LABEL maintainer="hola-project"
+LABEL version="${VERSION}"
+LABEL build-date="${BUILD_DATE}"
+LABEL description="Hola production container with s6-overlay"
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install xz-utils for extracting s6-overlay
+RUN apt-get update && apt-get install -y xz-utils && rm -rf /var/lib/apt/lists/*
+
+# Install s6-overlay
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz /tmp/
+ADD https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz /tmp/
+RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz && \
+    tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz && \
+    rm -f /tmp/s6-overlay*.tar.xz
+
+# Install runtime dependencies (no dev tools)
+RUN apt-get update && \
+    apt-get install -y \
+    # Web server
+    nginx \
+    # Cache/session store
+    redis-server \
+    # Python runtime
+    python3 \
+    python3-pip \
+    # Database clients
+    sqlite3 \
+    libsqlite3-0 \
+    libmysqlclient21 \
+    libpq5 \
+    # Utilities
+    ca-certificates \
+    curl \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages for production
+RUN pip3 install --no-cache-dir --break-system-packages \
+    fastapi \
+    uvicorn \
+    gunicorn \
+    psycopg2-binary \
+    pymysql \
+    python-dotenv \
+    pyjwt \
+    email-validator \
+    redis \
+    httpx
+
+# Create application directory structure
+RUN mkdir -p /app/api \
+    /app/gui \
+    /app/services/mod_status \
+    /app/conf \
+    /app/logs \
+    /app/data
+
+# Copy api application
+COPY api/ /app/api/
+
+# Copy compiled frontend from builder stage
+COPY --from=frontend-builder /build/static/ /app/gui/
+
+# Copy C++ binaries from cpp-binaries stage
+COPY --from=cpp-binaries /binaries/ /app/services/
+
+# Make binaries executable
+RUN chmod +x /app/services/mod_status/bin/* 2>/dev/null || true
+
+# Copy nginx configurations
+COPY project/install/nginx/nginx.conf /etc/nginx/nginx.conf
+COPY project/install/nginx/gateway /etc/nginx/sites-available/gateway
+
+# Adapt nginx config for production (replace /workspace with /app, port 2310 with 80)
+RUN sed -i 's|/workspace|/app|g' /etc/nginx/sites-available/gateway && \
+    sed -i 's|listen 2310|listen 80|g' /etc/nginx/sites-available/gateway && \
+    sed -i 's|listen \[::\]:2310|listen [::]:80|g' /etc/nginx/sites-available/gateway && \
+    sed -i 's|/app/gui/static|/app/gui|g' /etc/nginx/sites-available/gateway
+
+# Enable nginx site and disable default
+RUN ln -sf /etc/nginx/sites-available/gateway /etc/nginx/sites-enabled/gateway && \
+    rm -f /etc/nginx/sites-enabled/default
+
+# Copy Redis configuration
+COPY project/install/redis/redis.conf /etc/redis/redis.conf
+
+# Create directories for Redis
+RUN mkdir -p /var/log/redis /var/lib/redis && \
+    chown redis:redis /var/log/redis /var/lib/redis
+
+# Copy s6 service definitions for production using legacy-services mode
+# This is compatible with s6-overlay v3 and simpler than s6-rc
+COPY project/release/s6-prod/ /etc/services.d/
+
+# Make service scripts executable
+RUN find /etc/services.d -name "run" -type f -exec chmod +x {} \; && \
+    find /etc/services.d -name "finish" -type f -exec chmod +x {} \;
+
+# Create non-root user for application
+RUN useradd -r -s /bin/false appuser && \
+    chown -R appuser:appuser /app
+
+# Create symlinks for easy configuration access
+RUN ln -sf /etc/nginx/sites-available/gateway /app/conf/nginx.conf && \
+    ln -sf /etc/redis/redis.conf /app/conf/redis.conf
+
+# Environment variables with defaults
+ENV PROJECT_NAME=hola \
+    LOG_LEVEL=info \
+    GUNICORN_WORKERS=4 \
+    DB_TYPE=sqlite3 \
+    SQLITE3_ENABLED=y \
+    MARIADB_ENABLED=n \
+    PGSQL_ENABLED=n \
+    S6_VERBOSITY=1
+
+# Expose HTTP and HTTPS ports
+EXPOSE 80 443
+
+# Define volumes for persistent data
+VOLUME ["/app/data", "/app/logs"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost/ || exit 1
+
+# s6-overlay entrypoint
+ENTRYPOINT ["/init"]

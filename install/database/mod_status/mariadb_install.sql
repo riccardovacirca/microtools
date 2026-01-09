@@ -1,0 +1,2 @@
+-- @require mariadb/schema_install.sql
+-- @require mariadb/data.sql

@@ -1,0 +1,237 @@
+{
+  "name": "dsl-helper-python",
+  "description": "Create, review, or refactor Python helper functions. Utility-level, strongly typed, with single exit point and explicit exception handling.",
+  "role": "Expert Python developer for service-layer or support code. Enforce minimal but disciplined DSL for helpers focused on type safety, validation, and predictable behavior.",
+  "template": {
+    "function_declaration": {
+      "syntax": "@validate_arguments\ndef <helper_function_name>(<param>: <Type> = Field(...), ...) -> <ReturnType>:",
+      "constraints": {
+        "decorator": "@validate_arguments from pydantic for automatic validation",
+        "naming": "descriptive helper name, prefixed with helper_ if desired",
+        "type_hints": "mandatory for all parameters and return type",
+        "field_constraints": "use Field(...) from pydantic for validation constraints",
+        "no_optional_params": "all parameters required, use Field(...) to enforce",
+        "modern_syntax": "use | for unions if needed"
+      },
+      "examples": {
+        "with_constraints": "@validate_arguments\ndef helper_parse_integer(text: str = Field(..., min_length=1)) -> int:",
+        "simple": "@validate_arguments\ndef helper_merge_dicts(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:"
+      }
+    },
+    "pydantic_integration": {
+      "required": true,
+      "imports": "from pydantic import validate_arguments, Field",
+      "decorator": "@validate_arguments",
+      "field_usage": {
+        "syntax": "param: Type = Field(..., <constraint>=<value>)",
+        "constraints": [
+          "min_length: minimum string length",
+          "max_length: maximum string length",
+          "ge: greater than or equal (numbers)",
+          "le: less than or equal (numbers)",
+          "...: required field marker"
+        ],
+        "examples": [
+          "text: str = Field(..., min_length=1)",
+          "username: str = Field(..., min_length=3, max_length=50)",
+          "age: int = Field(..., ge=0, le=150)"
+        ]
+      },
+      "benefits": [
+        "automatic validation of parameter types",
+        "automatic validation of constraints",
+        "clear error messages for invalid inputs",
+        "reduces boilerplate validation code"
+      ]
+    },
+    "return_semantics": {
+      "pattern": "return typed value or raise exception",
+      "constraints": {
+        "specific_return_type": "return type must be specific (int, str, Dict, etc.)",
+        "no_optional": "avoid Optional/None returns, use exceptions instead",
+        "no_silent_failure": "failures are communicated via exceptions",
+        "single_exit_point": "one return statement at end of function"
+      },
+      "exception_types": [
+        "ValueError: for invalid values or failed validation",
+        "TypeError: for type mismatches",
+        "KeyError: for missing dictionary keys",
+        "FileNotFoundError: for missing files",
+        "specific exceptions appropriate to the failure"
+      ]
+    },
+    "validation_and_logic": {
+      "validation": {
+        "approach": "raise exceptions for validation failures",
+        "syntax": "if <invalid_condition>:\n    raise ValueError(\"descriptive message\")",
+        "no_early_return": "don't use early returns, raise exception instead",
+        "examples": [
+          "if value < -2147483648 or value > 2147483647:\n    raise ValueError(\"Integer out of 32-bit range\")",
+          "if not path.exists() or not path.is_file():\n    raise FileNotFoundError(f\"File not found: {file_path}\")"
+        ]
+      },
+      "main_logic": {
+        "syntax": "# local variables\n# processing\nreturn result",
+        "constraints": {
+          "minimal_scope": "declare variables close to usage",
+          "atomic_operations": "operations should be atomic where possible",
+          "single_exit": "one return statement at the end"
+        }
+      },
+      "no_try_except": {
+        "rule": "helpers should not catch exceptions internally",
+        "rationale": "let exceptions propagate to caller",
+        "exceptions_to_rule": "only when converting low-level exceptions to domain exceptions",
+        "example_allowed": "try:\n    with open(path, 'r') as f:\n        data = json.load(f)\nexcept (OSError, json.JSONDecodeError) as e:\n    raise ValueError(f\"Failed to load JSON: {e}\")"
+      }
+    },
+    "error_handling": {
+      "philosophy": "explicit exceptions, no silent failures",
+      "forbidden": [
+        "returning None to indicate failure",
+        "returning False to indicate failure",
+        "catching and suppressing exceptions",
+        "generic Exception() without message",
+        "try/except for control flow"
+      ],
+      "allowed": [
+        "raising specific exceptions (ValueError, TypeError, etc.)",
+        "descriptive error messages",
+        "exception chaining when converting low-level exceptions"
+      ],
+      "patterns": {
+        "validation_failure": "raise ValueError(\"descriptive message\")",
+        "type_error": "raise TypeError(\"expected type X, got Y\")",
+        "missing_resource": "raise FileNotFoundError(f\"File not found: {path}\")",
+        "key_missing": "raise KeyError(f\"Key '{key}' not found in data\")"
+      }
+    },
+    "structure": {
+      "single_exit_point": {
+        "required": true,
+        "description": "exactly one return statement at function end",
+        "no_early_returns": "do not use early returns",
+        "raise_for_errors": "use raise for error cases, not return"
+      },
+      "minimal_blocks": {
+        "description": "keep helper logic concise and focused",
+        "no_complex_flow": "avoid complex nested logic",
+        "prefer_simple": "simple linear flow with validation then processing"
+      }
+    },
+    "type_system": {
+      "constraints": {
+        "all_parameters": "must have type hints",
+        "return_type": "must have return type hint",
+        "modern_syntax": "use | for unions if needed (rare in helpers)",
+        "specific_types": "use specific types (Dict[str, Any], not just dict)",
+        "no_any_only": "avoid using Any alone, prefer Dict[str, Any], List[Any], etc."
+      },
+      "examples": {
+        "correct": [
+          "def helper_parse_integer(text: str) -> int:",
+          "def helper_load_json(path: str) -> Dict[str, Any]:",
+          "def helper_validate_email(email: str) -> bool:"
+        ],
+        "incorrect": [
+          "def helper_parse(text):  # missing type hints",
+          "def helper_load_json(path: str) -> dict:  # use Dict[str, Any]",
+          "def helper_parse_integer(text: str) -> int | None:  # use exception not None"
+        ]
+      }
+    },
+    "forbidden_constructs": {
+      "list": [
+        "early returns (return before function end)",
+        "multiple return points",
+        "returning None to indicate failure",
+        "returning False to indicate failure",
+        "Optional return types (use exceptions)",
+        "catching exceptions without re-raising or converting",
+        "silent error suppression",
+        "complex try/except blocks for control flow",
+        "error flags or error state management"
+      ]
+    },
+    "required_constructs": {
+      "list": [
+        "@validate_arguments decorator",
+        "Field constraints for parameters where appropriate",
+        "complete type hints for all parameters and return",
+        "specific exception raising for failures",
+        "descriptive error messages",
+        "single return statement at end"
+      ]
+    },
+    "key_principles": {
+      "explicit_over_implicit": "failures are explicit via exceptions, not implicit via None/False",
+      "type_safety": "strong typing with Pydantic validation",
+      "single_exit": "predictable control flow with one return",
+      "fail_fast": "validate early and raise exceptions immediately",
+      "no_silent_failure": "all failures are communicated via exceptions",
+      "minimal_structure": "helpers stay small and focused"
+    },
+    "common_use_cases": {
+      "examples": [
+        {
+          "use_case": "parsing and validation",
+          "pattern": "validate input -> parse -> validate result -> return",
+          "exception": "ValueError for invalid input or parse failure"
+        },
+        {
+          "use_case": "data conversion",
+          "pattern": "check input type -> convert -> validate result -> return",
+          "exception": "ValueError or TypeError for conversion failure"
+        },
+        {
+          "use_case": "file operations",
+          "pattern": "check file exists -> read -> validate content -> return",
+          "exception": "FileNotFoundError, ValueError for invalid content"
+        },
+        {
+          "use_case": "data extraction",
+          "pattern": "validate data structure -> extract -> return",
+          "exception": "KeyError for missing keys, ValueError for invalid structure"
+        }
+      ]
+    },
+    "difference_from_application_functions": {
+      "helper_functions": {
+        "error_class": false,
+        "retv_variable": false,
+        "error_variable": false,
+        "try_except_wrapper": false,
+        "error_flags": false,
+        "single_exit_via_exception": true,
+        "pydantic_validation": true,
+        "direct_exceptions": true
+      },
+      "application_functions": {
+        "error_class": true,
+        "retv_variable": true,
+        "error_variable": true,
+        "try_except_wrapper": true,
+        "error_flags": true,
+        "single_exit_via_raise_and_return": true,
+        "pydantic_validation": "optional",
+        "centralized_error_mapping": true
+      }
+    },
+    "complete_example": {
+      "description": "Complete helper function example",
+      "code": "@validate_arguments\ndef helper_parse_integer(text: str = Field(..., min_length=1)) -> int:\n    \"\"\"Parse string to 32-bit integer.\n    \n    Args:\n        text: String to parse\n        \n    Returns:\n        Parsed integer\n        \n    Raises:\n        ValueError: If text is not valid integer or out of range\n    \"\"\"\n    value = int(text)  # raises ValueError if invalid\n    if value < -2147483648 or value > 2147483647:\n        raise ValueError(\"Integer out of 32-bit range\")\n    return value"
+    },
+    "summary_for_ai_agents": [
+      "Helper functions use @validate_arguments decorator",
+      "All parameters use Field() with constraints",
+      "Failures communicated via specific exceptions (ValueError, TypeError, etc.)",
+      "No Optional return types - use exceptions instead",
+      "Single return statement at function end",
+      "No early returns, no multiple exit points",
+      "Strong typing with complete type hints",
+      "Minimal structure, focused logic",
+      "No try/except unless converting low-level exceptions",
+      "Deviation from these principles is non-compliant"
+    ]
+  }
+}

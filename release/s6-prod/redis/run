@@ -1,0 +1,3 @@
+#!/bin/sh
+# Start Redis server with custom config
+exec redis-server /etc/redis/redis.conf

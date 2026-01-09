@@ -1,0 +1,2 @@
+-- @require postgres/schema_install.sql
+-- @require postgres/data.sql

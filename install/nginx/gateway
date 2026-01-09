@@ -1,0 +1,64 @@
+# API Gateway Configuration
+# Port 2310 (mapped to host) -> Reverse Proxy to Gunicorn on port 8000
+
+upstream fastapi_backend {
+    server 127.0.0.1:8000 fail_timeout=0;
+}
+
+server {
+    listen 2310 default_server;
+    listen [::]:2310 default_server;
+
+    server_name _;
+
+    # Logging
+    access_log /workspace/logs/nginx-access.log;
+    error_log /workspace/logs/nginx-error.log info;
+
+    # API routes - proxy to FastAPI/Gunicorn
+    location /api/ {
+        proxy_pass http://fastapi_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
+        proxy_buffering off;
+    }
+
+    # FastAPI docs
+    location /docs {
+        proxy_pass http://fastapi_backend;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /openapi.json {
+        proxy_pass http://fastapi_backend;
+        proxy_set_header Host $host;
+    }
+
+    # Static files - serve from /workspace/gui/static (Svelte build output)
+    location / {
+        root /workspace/gui/static;
+        index index.html index.htm;
+
+        # Try file, then directory, fallback to index.html for SPA routing
+        try_files $uri $uri/ /index.html;
+
+        # Cache static assets
+        location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+
+    # Health check endpoint (nginx level)
+    location /nginx-health {
+        access_log off;
+        return 200 "nginx ok\n";
+        add_header Content-Type text/plain;
+    }
+}

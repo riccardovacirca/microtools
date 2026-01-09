@@ -1,0 +1,1282 @@
+#!/bin/sh
+set -e
+
+# WebApp utility script
+# Must be run inside container only
+
+DB_CLI_FILE=""
+
+error() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
+info() { printf 'INFO: %s\n' "$1"; }
+warn() { printf 'WARNING: %s\n' "$1" >&2; }
+
+# Ask for user confirmation
+confirm() {
+  printf '%s [y/N]: ' "$1"
+  read -r answer
+  case "$answer" in
+    [Yy]|[Yy][Ee][Ss]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Load and export all environment variables from .env
+load_env() {
+  if [ -f /workspace/.env ]; then
+    set -a  # Export all variables
+    . /workspace/.env
+    set +a  # Stop exporting
+  fi
+  if [ -f .env ]; then
+    set -a
+    . ./.env
+    set +a
+  fi
+}
+
+show_help() {
+  cat << 'EOF'
+Usage: wa COMMAND [OPTIONS]
+
+Commands:
+  wa status                    Show all services status
+  wa monitor                   Show detailed monitoring (ports, CPU, memory)
+  wa list                      List all s6 services and their status
+  wa enable <service>          Enable a service (vite, mod_status, etc.)
+  wa disable <service>         Disable a service
+  wa db                        Open database CLI
+  wa db -f FILE                Execute SQL/CSV file
+  wa db conf                   Configure ODBC from .env settings
+  wa service build -n NAME     Build microservice
+  wa service restart -n NAME   Restart microservice (without restarting container)
+  wa gui build                 Build GUI for production
+  wa redis status              Show Redis status
+  wa redis info                List all keys in Redis
+  wa gunicorn start            Start Gunicorn server (port 8001)
+  wa gunicorn stop             Stop Gunicorn server
+  wa gunicorn restart          Restart Gunicorn server
+  wa gunicorn status           Show Gunicorn server status
+  wa git push                  Push changes to git repositories (workspace and project)
+  wa git pull                  Pull changes from git repositories (workspace and project)
+  wa git sync                  Sync git repositories (pull, commit, push)
+  wa --help, -h                Show this help
+
+Services managed by s6-overlay:
+  - nginx, redis, api (always enabled)
+  - vite, mod_status (disabled by default, enable manually)
+
+Note: Services start/stop/restart automatically via s6-overlay.
+      Use 'wa enable/disable' to control which services run.
+      Use 'wa service restart' to reload a service after recompiling.
+
+EOF
+  exit 0
+}
+
+resolve_file_dependencies() {
+  SQL_FILE="$1"
+  SQL_DIR="$(dirname "$SQL_FILE")"
+
+  [ ! -f "$SQL_FILE" ] && error "File not found: $SQL_FILE"
+
+  # Temporary files to track execution order and visited files
+  TMP_SORTED=$(mktemp)
+  TMP_VISITED=$(mktemp)
+
+  # Recursive function to trace dependencies
+  trace_dependencies() {
+    local file_path="$1"
+    local filename=$(basename "$file_path")
+    # Calculate relative path from SQL_DIR
+    local rel_path="${file_path#$SQL_DIR/}"
+
+    # Check if already visited (prevent infinite loops)
+    if grep -q "^$(echo "$rel_path" | sed 's/[^^]/[&]/g; s/\^/\\^/g')$" "$TMP_VISITED"; then
+      return 0
+    fi
+
+    # Mark as visited
+    echo "$rel_path" >> "$TMP_VISITED"
+
+    # Extract and process @require directives
+    if grep -q "^--[[:space:]]*@require" "$file_path"; then
+      grep "^--[[:space:]]*@require" "$file_path" | while read -r line; do
+        # Extract required filename
+        required=$(echo "$line" | sed 's/^--[[:space:]]*@require[[:space:]]*//; s/[[:space:]]*$//')
+        required_path="$SQL_DIR/$required"
+
+        # Check if required file exists
+        if [ ! -f "$required_path" ]; then
+          warn "Dependency not found: $required (required by $filename)"
+          continue
+        fi
+
+        # Recursively trace dependencies of required file
+        trace_dependencies "$required_path"
+      done
+    fi
+
+    # Add current file to execution list (after its dependencies)
+    echo "$rel_path" >> "$TMP_SORTED"
+  }
+
+  # Start tracing from the requested file
+  trace_dependencies "$SQL_FILE"
+
+  # Output sorted list (dependencies first, then the file itself)
+  cat "$TMP_SORTED"
+
+  # Cleanup
+  rm -f "$TMP_SORTED" "$TMP_VISITED"
+}
+
+db_cli() {
+  load_env
+
+  FILE="$1"
+
+  # If file is provided
+  if [ -n "$FILE" ]; then
+    # Directories are not supported - must specify a single SQL file
+    if [ -d "$FILE" ]; then
+      error "Directory execution not supported. Please specify a single .sql file (dependencies will be resolved automatically)"
+    fi
+
+    [ ! -f "$FILE" ] && error "File not found: $FILE"
+
+    FILE_EXT=$(echo "$FILE" | grep -o '\.[^.]*$')
+
+    # Handle CSV files
+    if [ "$FILE_EXT" = ".csv" ]; then
+      TABLE_NAME=$(basename "$FILE" .csv)
+      COLUMNS=$(head -1 "$FILE" | sed 's/"//g' | sed 's/;/,/g')
+
+      if [ "$PGSQL_ENABLED" = "y" ]; then
+        info "Loading CSV into PostgreSQL table: $TABLE_NAME"
+        export PGPASSWORD="$PGSQL_PASSWORD"
+        # Extract host from connection string
+        PGSQL_HOST=$(echo "$PGSQL_CONNECTION" | grep -oP 'host=\K[^,\s]+' | head -1)
+        PGSQL_PORT=$(echo "$PGSQL_CONNECTION" | grep -oP 'port=\K[^,\s]+' | head -1)
+        PGSQL_USER=$(echo "$PGSQL_CONNECTION" | grep -oP 'user=\K[^,\s]+' | head -1)
+        PGSQL_DBNAME=$(echo "$PGSQL_CONNECTION" | grep -oP 'dbname=\K[^,\s]+' | head -1)
+
+        psql -h "${PGSQL_HOST:-localhost}" -p "${PGSQL_PORT:-5432}" -U "${PGSQL_USER:-postgres}" -d "${PGSQL_DBNAME}" \
+          -c "\\COPY $TABLE_NAME ($COLUMNS) FROM '$FILE' WITH (FORMAT CSV, HEADER true, DELIMITER ';', QUOTE '\"', NULL '\\N')"
+
+      elif [ "$MARIADB_ENABLED" = "y" ]; then
+        info "Loading CSV into MariaDB table: $TABLE_NAME"
+        # Extract connection params
+        MARIADB_HOST=$(echo "$MARIADB_CONNECTION" | grep -oP 'host=\K[^,]+' | head -1)
+        MARIADB_PORT=$(echo "$MARIADB_CONNECTION" | grep -oP 'port=\K[^,]+' | head -1)
+        MARIADB_USER=$(echo "$MARIADB_CONNECTION" | grep -oP 'user=\K[^,]+' | head -1)
+        MARIADB_PASS=$(echo "$MARIADB_CONNECTION" | grep -oP 'pass=\K[^,]+' | head -1)
+        MARIADB_DBNAME=$(echo "$MARIADB_CONNECTION" | grep -oP 'dbname=\K[^,]+' | head -1)
+
+        mysql -h "${MARIADB_HOST:-localhost}" -P "${MARIADB_PORT:-3306}" -u "${MARIADB_USER}" -p"${MARIADB_PASS}" "${MARIADB_DBNAME}" \
+          -e "LOAD DATA LOCAL INFILE '$FILE' INTO TABLE $TABLE_NAME FIELDS TERMINATED BY ';' ENCLOSED BY '\"' LINES TERMINATED BY '\\n' IGNORE 1 LINES;"
+
+      elif [ "$SQLITE3_ENABLED" = "y" ]; then
+        SQLITE3_DB_PATH=$(echo "$SQLITE3_CONNECTION" | sed 's/file://')
+        info "Loading CSV into SQLite table: $TABLE_NAME at $SQLITE3_DB_PATH"
+        sqlite3 "$SQLITE3_DB_PATH" <<SQLITECMD
+.mode csv
+.separator ";"
+.import --skip 1 $FILE $TABLE_NAME
+SQLITECMD
+      else
+        error "No database enabled. Set SQLITE3_ENABLED, MARIADB_ENABLED, or PGSQL_ENABLED to 'y'"
+      fi
+      info "CSV file loaded successfully"
+
+    # Handle SQL files
+    elif [ "$FILE_EXT" = ".sql" ]; then
+      # Resolve dependencies and get execution order
+      info "Resolving dependencies for: $(basename "$FILE")"
+      SORTED_FILES=$(resolve_file_dependencies "$FILE")
+      SQL_DIR=$(dirname "$FILE")
+
+      if [ -z "$SORTED_FILES" ]; then
+        warn "No files to execute"
+        return 1
+      fi
+
+      # Execute each file in dependency order
+      echo "$SORTED_FILES" | while read -r sql_filename; do
+        sql_filepath="$SQL_DIR/$sql_filename"
+        [ ! -f "$sql_filepath" ] && continue
+
+        info "  Executing: $sql_filename"
+
+        if [ "$PGSQL_ENABLED" = "y" ]; then
+          export PGPASSWORD="$PGSQL_PASSWORD"
+          # Extract connection params
+          PGSQL_HOST=$(echo "$PGSQL_CONNECTION" | grep -oP 'host=\K[^,\s]+' | head -1)
+          PGSQL_PORT=$(echo "$PGSQL_CONNECTION" | grep -oP 'port=\K[^,\s]+' | head -1)
+          PGSQL_USER=$(echo "$PGSQL_CONNECTION" | grep -oP 'user=\K[^,\s]+' | head -1)
+          PGSQL_DBNAME=$(echo "$PGSQL_CONNECTION" | grep -oP 'dbname=\K[^,\s]+' | head -1)
+
+          psql -h "${PGSQL_HOST:-localhost}" -p "${PGSQL_PORT:-5432}" -U "${PGSQL_USER:-postgres}" -d "${PGSQL_DBNAME}" -f "$sql_filepath" || warn "Failed to execute $sql_filename"
+
+        elif [ "$MARIADB_ENABLED" = "y" ]; then
+          # Extract connection params
+          MARIADB_HOST=$(echo "$MARIADB_CONNECTION" | grep -oP 'host=\K[^,]+' | head -1)
+          MARIADB_PORT=$(echo "$MARIADB_CONNECTION" | grep -oP 'port=\K[^,]+' | head -1)
+          MARIADB_USER=$(echo "$MARIADB_CONNECTION" | grep -oP 'user=\K[^,]+' | head -1)
+          MARIADB_PASS=$(echo "$MARIADB_CONNECTION" | grep -oP 'pass=\K[^,]+' | head -1)
+          MARIADB_DBNAME=$(echo "$MARIADB_CONNECTION" | grep -oP 'dbname=\K[^,]+' | head -1)
+
+          mysql -h "${MARIADB_HOST:-localhost}" -P "${MARIADB_PORT:-3306}" -u "${MARIADB_USER}" -p"${MARIADB_PASS}" "${MARIADB_DBNAME}" < "$sql_filepath" || warn "Failed to execute $sql_filename"
+
+        elif [ "$SQLITE3_ENABLED" = "y" ]; then
+          SQLITE3_DB_PATH=$(echo "$SQLITE3_CONNECTION" | sed 's/file://')
+          sqlite3 "$SQLITE3_DB_PATH" < "$sql_filepath" || warn "Failed to execute $sql_filename"
+        else
+          error "No database enabled. Set SQLITE3_ENABLED, MARIADB_ENABLED, or PGSQL_ENABLED to 'y'"
+        fi
+      done
+
+      info "SQL file executed successfully (with dependencies)"
+    else
+      error "Unsupported file type. Use .sql or .csv"
+    fi
+
+  # No file - open interactive CLI
+  else
+    if [ "$PGSQL_ENABLED" = "y" ]; then
+      info "Connecting to PostgreSQL database..."
+      export PGPASSWORD="$PGSQL_PASSWORD"
+      # Extract connection params
+      PGSQL_HOST=$(echo "$PGSQL_CONNECTION" | grep -oP 'host=\K[^,\s]+' | head -1)
+      PGSQL_PORT=$(echo "$PGSQL_CONNECTION" | grep -oP 'port=\K[^,\s]+' | head -1)
+      PGSQL_USER=$(echo "$PGSQL_CONNECTION" | grep -oP 'user=\K[^,\s]+' | head -1)
+      PGSQL_DBNAME=$(echo "$PGSQL_CONNECTION" | grep -oP 'dbname=\K[^,\s]+' | head -1)
+
+      psql -h "${PGSQL_HOST:-localhost}" -p "${PGSQL_PORT:-5432}" -U "${PGSQL_USER:-postgres}" -d "${PGSQL_DBNAME}"
+
+    elif [ "$MARIADB_ENABLED" = "y" ]; then
+      info "Connecting to MariaDB database..."
+      # Extract connection params
+      MARIADB_HOST=$(echo "$MARIADB_CONNECTION" | grep -oP 'host=\K[^,]+' | head -1)
+      MARIADB_PORT=$(echo "$MARIADB_CONNECTION" | grep -oP 'port=\K[^,]+' | head -1)
+      MARIADB_USER=$(echo "$MARIADB_CONNECTION" | grep -oP 'user=\K[^,]+' | head -1)
+      MARIADB_PASS=$(echo "$MARIADB_CONNECTION" | grep -oP 'pass=\K[^,]+' | head -1)
+      MARIADB_DBNAME=$(echo "$MARIADB_CONNECTION" | grep -oP 'dbname=\K[^,]+' | head -1)
+
+      mysql -h "${MARIADB_HOST:-localhost}" -P "${MARIADB_PORT:-3306}" -u "${MARIADB_USER}" -p"${MARIADB_PASS}" "${MARIADB_DBNAME}"
+
+    elif [ "$SQLITE3_ENABLED" = "y" ]; then
+      SQLITE3_DB_PATH=$(echo "$SQLITE3_CONNECTION" | sed 's/file://')
+      info "Connecting to SQLite database: $SQLITE3_DB_PATH"
+      sqlite3 "$SQLITE3_DB_PATH"
+    else
+      error "No database enabled. Set SQLITE3_ENABLED, MARIADB_ENABLED, or PGSQL_ENABLED to 'y'"
+    fi
+  fi
+}
+
+service_build() {
+  SERVICE_NAME="$1"
+  SERVICE_DIR="/workspace/services/$SERVICE_NAME"
+
+  [ -z "$SERVICE_NAME" ] && error "Service name is required. Use: wa service build -n <name>"
+  [ ! -d "$SERVICE_DIR" ] && error "Service not found: $SERVICE_NAME (directory $SERVICE_DIR does not exist)"
+
+  info "Building $SERVICE_NAME microservice..."
+
+  # Check if CMakeLists.txt exists (C++ microservice)
+  if [ ! -f "$SERVICE_DIR/CMakeLists.txt" ]; then
+    error "No build configuration found. Expected CMakeLists.txt in $SERVICE_DIR"
+  fi
+
+  info "Building C++ microservice with CMake..."
+  cd "$SERVICE_DIR"
+  mkdir -p build
+  cd build
+  cmake .. -DCMAKE_BUILD_TYPE=Debug > /workspace/logs/"$SERVICE_NAME"-build.log 2>&1 || error "CMake configuration failed. Check /workspace/logs/$SERVICE_NAME-build.log"
+  make -j$(nproc) >> /workspace/logs/"$SERVICE_NAME"-build.log 2>&1 || error "Build failed for $SERVICE_NAME. Check /workspace/logs/$SERVICE_NAME-build.log"
+  cd /workspace
+
+  # Check if binary was created
+  BINARY_NAME=$(basename "$SERVICE_NAME" | sed 's/^mod_//')
+  if [ -f "$SERVICE_DIR/bin/$BINARY_NAME" ]; then
+    info "Build complete. Binary: $SERVICE_DIR/bin/$BINARY_NAME"
+    info "Binary size: $(du -h "$SERVICE_DIR/bin/$BINARY_NAME" | cut -f1)"
+  else
+    warn "Build completed but binary not found at expected location: $SERVICE_DIR/bin/$BINARY_NAME"
+  fi
+}
+
+service_restart() {
+  SERVICE_NAME="$1"
+
+  [ -z "$SERVICE_NAME" ] && error "Service name is required. Use: wa service restart -n <name>"
+
+  # Check if service is enabled
+  if [ ! -d "/etc/services.d/$SERVICE_NAME" ]; then
+    error "Service '$SERVICE_NAME' is not enabled. Enable it first with: wa enable $SERVICE_NAME"
+  fi
+
+  info "Restarting $SERVICE_NAME service..."
+
+  # Use s6-svc to restart the service (official s6 command)
+  if /command/s6-svc -r "/run/service/$SERVICE_NAME" 2>/dev/null; then
+    info "Service '$SERVICE_NAME' restarted successfully"
+  else
+    error "Failed to restart service '$SERVICE_NAME'. Check if s6 is managing this service."
+  fi
+}
+
+fe_build() {
+  GUI_DIR="/workspace/gui"
+
+  [ ! -d "$GUI_DIR" ] && error "GUI directory not found: $GUI_DIR"
+
+  # Check if package.json exists
+  if [ ! -f "$GUI_DIR/package.json" ]; then
+    error "package.json not found in $GUI_DIR"
+  fi
+
+  info "Building Svelte GUI for production..."
+
+  # Change to gui directory
+  cd "$GUI_DIR"
+
+  # Check if npm is available
+  command -v npm >/dev/null 2>&1 || error "npm not found. Node.js not installed."
+
+  # Check if node_modules exists
+  if [ ! -d "node_modules" ]; then
+    info "Dependencies not found. Running npm install..."
+    npm install || error "npm install failed"
+  fi
+
+  # Run build
+  npm run build || error "GUI build failed"
+
+  # Check if build output exists
+  if [ -d "static" ]; then
+    info "Build complete. Output: $GUI_DIR/static"
+  else
+    warn "Build completed but static directory not found"
+  fi
+
+  cd /workspace
+}
+
+redis_status() {
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo "                           REDIS SERVER STATUS"
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+
+  if redis-cli ping >/dev/null 2>&1; then
+    echo "  Status: RUNNING"
+
+    # Get Redis info
+    REDIS_VERSION=$(redis-cli INFO server | grep "redis_version:" | cut -d':' -f2 | tr -d '\r')
+    UPTIME=$(redis-cli INFO server | grep "uptime_in_seconds:" | cut -d':' -f2 | tr -d '\r')
+    UPTIME_DAYS=$((UPTIME / 86400))
+    UPTIME_HOURS=$(((UPTIME % 86400) / 3600))
+    UPTIME_MINS=$(((UPTIME % 3600) / 60))
+
+    CONNECTED_CLIENTS=$(redis-cli INFO clients | grep "connected_clients:" | cut -d':' -f2 | tr -d '\r')
+    USED_MEMORY=$(redis-cli INFO memory | grep "used_memory_human:" | cut -d':' -f2 | tr -d '\r')
+    TOTAL_KEYS=$(redis-cli DBSIZE | awk '{print $2}')
+
+    echo "  Version: $REDIS_VERSION"
+    echo "  Uptime: ${UPTIME_DAYS}d ${UPTIME_HOURS}h ${UPTIME_MINS}m"
+    echo "  Connected clients: $CONNECTED_CLIENTS"
+    echo "  Memory used: $USED_MEMORY"
+    echo "  Total keys: $TOTAL_KEYS"
+    echo ""
+  else
+    echo "  Status: STOPPED"
+    echo ""
+  fi
+}
+
+redis_info() {
+  info "Redis keys information..."
+  echo ""
+
+  # Check if Redis is running
+  if ! redis-cli ping >/dev/null 2>&1; then
+    error "Redis server not running. Start it with 'wa redis start'"
+  fi
+
+  # Get total number of keys
+  TOTAL_KEYS=$(redis-cli DBSIZE | awk '{print $2}')
+
+  if [ "$TOTAL_KEYS" = "0" ]; then
+    info "No keys found in Redis"
+    return 0
+  fi
+
+  echo "Total keys: $TOTAL_KEYS"
+  echo ""
+  echo "Keys list:"
+  echo "─────────────────────────────────────────────────────────────────"
+
+  # List all keys with their type and TTL
+  redis-cli --scan | while read -r key; do
+    KEY_TYPE=$(redis-cli TYPE "$key" | tr -d '\r')
+    TTL=$(redis-cli TTL "$key" | tr -d '\r')
+
+    if [ "$TTL" = "-1" ]; then
+      TTL_INFO="no expiry"
+    elif [ "$TTL" = "-2" ]; then
+      TTL_INFO="key not found"
+    else
+      TTL_INFO="expires in ${TTL}s"
+    fi
+
+    printf "  %-50s [%s] (%s)\n" "$key" "$KEY_TYPE" "$TTL_INFO"
+  done
+
+  echo ""
+}
+
+# Enable a service (s6-overlay v3 compatible)
+service_enable() {
+  SERVICE_NAME="$1"
+
+  [ -z "$SERVICE_NAME" ] && error "Service name required. Use: wa enable <service>"
+
+  # Check if service is already enabled
+  if [ -d "/etc/services.d/$SERVICE_NAME" ]; then
+    info "Service '$SERVICE_NAME' is already enabled"
+    return 0
+  fi
+
+  # Check if service is available to enable
+  if [ ! -d "/etc/services.d.available/$SERVICE_NAME" ]; then
+    error "Service '$SERVICE_NAME' not found in /etc/services.d.available/"
+  fi
+
+  # Copy to services.d for reference
+  cp -r "/etc/services.d.available/$SERVICE_NAME" "/etc/services.d/$SERVICE_NAME"
+
+  # Copy to s6-rc source (s6-overlay v3 requirement)
+  if [ ! -d "/etc/s6-rc/source/$SERVICE_NAME" ]; then
+    cp -r "/etc/services.d.available/$SERVICE_NAME" "/etc/s6-rc/source/$SERVICE_NAME"
+  fi
+
+  # Add to user bundle
+  mkdir -p /etc/s6-rc/source/user/contents.d
+  touch "/etc/s6-rc/source/user/contents.d/$SERVICE_NAME"
+
+  # Recompile s6-rc database
+  info "Recompiling s6-rc database..."
+  rm -rf /etc/s6-rc/compiled.new
+  if /command/s6-rc-compile /etc/s6-rc/compiled.new /etc/s6-rc/source 2>/dev/null; then
+    rm -rf /etc/s6-rc/compiled.old
+    mv /etc/s6-rc/compiled /etc/s6-rc/compiled.old 2>/dev/null || true
+    mv /etc/s6-rc/compiled.new /etc/s6-rc/compiled
+
+    # Update live state (s6-rc v3)
+    info "Updating live services..."
+    if /command/s6-rc -v2 -u change "$SERVICE_NAME" 2>/dev/null; then
+      info "Service '$SERVICE_NAME' enabled and started"
+    else
+      warn "Service enabled but not started. Restart container: docker restart <container>"
+    fi
+  else
+    error "Failed to recompile s6-rc database"
+  fi
+}
+
+# Disable a service (s6-overlay v3 compatible)
+service_disable() {
+  SERVICE_NAME="$1"
+
+  [ -z "$SERVICE_NAME" ] && error "Service name required. Use: wa disable <service>"
+
+  # Prevent disabling critical services
+  case "$SERVICE_NAME" in
+    nginx|redis|api)
+      warn "Cannot disable critical service '$SERVICE_NAME'"
+      error "Disabling core services will break the application"
+      ;;
+  esac
+
+  # Check if service is enabled
+  if [ ! -d "/etc/services.d/$SERVICE_NAME" ]; then
+    if [ -d "/etc/services.d.available/$SERVICE_NAME" ]; then
+      info "Service '$SERVICE_NAME' is already disabled"
+    else
+      error "Service '$SERVICE_NAME' not found"
+    fi
+    return 0
+  fi
+
+  # Stop service first (s6-rc v3)
+  info "Stopping service..."
+  /command/s6-rc -d change "$SERVICE_NAME" 2>/dev/null || warn "Could not stop service (may not be running)"
+
+  # Remove from services.d
+  rm -rf "/etc/services.d/$SERVICE_NAME"
+
+  # Remove from user bundle
+  rm -f "/etc/s6-rc/source/user/contents.d/$SERVICE_NAME"
+
+  # Recompile s6-rc database
+  info "Recompiling s6-rc database..."
+  rm -rf /etc/s6-rc/compiled.new
+  if /command/s6-rc-compile /etc/s6-rc/compiled.new /etc/s6-rc/source 2>/dev/null; then
+    rm -rf /etc/s6-rc/compiled.old
+    mv /etc/s6-rc/compiled /etc/s6-rc/compiled.old 2>/dev/null || true
+    mv /etc/s6-rc/compiled.new /etc/s6-rc/compiled
+    info "Service '$SERVICE_NAME' disabled"
+  else
+    error "Failed to recompile s6-rc database"
+  fi
+}
+
+# List all services and their status
+service_list() {
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo "                            S6 SERVICES STATUS"
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+  printf "%-20s %-15s %-40s\n" "SERVICE" "STATUS" "LOCATION"
+  echo "───────────────────────────────────────────────────────────────────────────"
+
+  # List enabled services from /etc/services.d/
+  for service_dir in /etc/services.d/*/; do
+    if [ -d "$service_dir" ]; then
+      service_name=$(basename "$service_dir")
+      printf "%-20s %-15s %-40s\n" "$service_name" "enabled" "$service_dir"
+    fi
+  done
+
+  # List available (disabled) services from /etc/services.d.available/
+  if [ -d "/etc/services.d.available" ]; then
+    for service_dir in /etc/services.d.available/*/; do
+      if [ -d "$service_dir" ]; then
+        service_name=$(basename "$service_dir")
+        # Skip if already enabled
+        if [ ! -d "/etc/services.d/$service_name" ]; then
+          printf "%-20s %-15s %-40s\n" "$service_name" "disabled" "$service_dir"
+        fi
+      fi
+    done
+  fi
+
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+  echo "Use 'wa enable <service>' to enable a disabled service"
+  echo "Use 'wa disable <service>' to disable an enabled service"
+  echo "Restart container after enabling/disabling services"
+  echo ""
+}
+
+# Check if service is running via s6
+check_s6_service() {
+  local service_name="$1"
+
+  # Check if service directory exists and is enabled (no _ prefix)
+  if [ -d "/etc/services.d/$service_name" ]; then
+    # Service is enabled, check if supervised by s6
+    if s6-svstat "/run/service/$service_name" >/dev/null 2>&1; then
+      echo "running"
+      return 0
+    else
+      echo "stopped"
+      return 1
+    fi
+  else
+    echo "disabled"
+    return 1
+  fi
+}
+
+# Updates a git repository
+# Arguments:
+#   $1: Directory path (e.g., /workspace or /workspace/project)
+#   $2: Repository name (e.g., hello or webapp)
+update_git_repo() {
+  REPO_DIR="$1"
+  REPO_NAME="$2"
+
+  info "Updating repository in $REPO_DIR..."
+
+  # Verify directory exists
+  if [ ! -d "$REPO_DIR" ]; then
+    warn "Directory $REPO_DIR does not exist, skipping"
+    return 0
+  fi
+
+  # Check if it's a git repository
+  if [ ! -d "$REPO_DIR/.git" ]; then
+    warn "$REPO_DIR is not a git repository, skipping"
+    return 0
+  fi
+
+  cd "$REPO_DIR"
+
+  # Configure git
+  git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
+  git config user.name "$GIT_USER"
+  git config user.email "$GIT_EMAIL"
+  git remote set-url origin "https://${GIT_USER}:${GIT_TOKEN}@github.com/riccardovacirca/${REPO_NAME}.git"
+
+  # Stage changes
+  info "  Staging changes in $REPO_DIR..."
+  git add . || { warn "Failed to stage changes in $REPO_DIR"; cd /workspace; return 1; }
+
+  # Commit changes
+  info "  Creating commit in $REPO_DIR..."
+  if git commit -m "updated" 2>/dev/null; then
+    info "  Changes committed in $REPO_DIR"
+  else
+    info "  No changes to commit in $REPO_DIR"
+    cd /workspace
+    return 0
+  fi
+
+  # Push to remote
+  info "  Pushing to remote from $REPO_DIR..."
+  if git push 2>/dev/null; then
+    info "  Successfully pushed $REPO_DIR"
+  else
+    warn "Failed to push changes from $REPO_DIR. Check credentials and network connection."
+    cd /workspace
+    return 1
+  fi
+
+  cd /workspace
+}
+
+# Pulls changes from git repositories
+pull_git_repo() {
+  REPO_DIR="$1"
+  REPO_NAME="$2"
+
+  info "Pulling repository in $REPO_DIR..."
+
+  # Verify directory exists
+  if [ ! -d "$REPO_DIR" ]; then
+    warn "Directory $REPO_DIR does not exist, skipping"
+    return 0
+  fi
+
+  # Check if it's a git repository
+  if [ ! -d "$REPO_DIR/.git" ]; then
+    warn "$REPO_DIR is not a git repository, skipping"
+    return 0
+  fi
+
+  cd "$REPO_DIR"
+
+  # Configure git
+  git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
+  git config user.name "$GIT_USER"
+  git config user.email "$GIT_EMAIL"
+  git remote set-url origin "https://${GIT_USER}:${GIT_TOKEN}@github.com/riccardovacirca/${REPO_NAME}.git"
+
+  # Pull from remote
+  info "  Pulling from remote in $REPO_DIR..."
+  if git pull 2>/dev/null; then
+    info "  Successfully pulled $REPO_DIR"
+  else
+    warn "Failed to pull changes from $REPO_DIR. Check credentials and network connection."
+    cd /workspace
+    return 1
+  fi
+
+  cd /workspace
+}
+
+# Pushes git repositories in workspace and project directories
+git_push() {
+  load_env
+
+  # Verify required environment variables
+  [ -z "$GIT_USER" ] && error "GIT_USER not set in .env file"
+  [ -z "$GIT_EMAIL" ] && error "GIT_EMAIL not set in .env file"
+  [ -z "$GIT_TOKEN" ] && error "GIT_TOKEN not set in .env file (GitHub Personal Access Token required)"
+
+  confirm "Push git repositories (workspace and project)?" || exit 0
+
+  info "Starting git push..."
+
+  # Update /workspace if it's a git repository
+  if [ -d "/workspace/.git" ]; then
+    update_git_repo "/workspace" "${PROJECT_NAME}"
+  else
+    info "/workspace is not a git repository, skipping"
+  fi
+
+  # Update /workspace/project if it's a git repository
+  if [ -d "/workspace/project/.git" ]; then
+    update_git_repo "/workspace/project" "microservice"
+  else
+    info "/workspace/project is not a git repository, skipping"
+  fi
+
+  info "Git push completed"
+}
+
+# Pulls changes from git repositories
+git_pull() {
+  load_env
+
+  # Verify required environment variables
+  [ -z "$GIT_USER" ] && error "GIT_USER not set in .env file"
+  [ -z "$GIT_EMAIL" ] && error "GIT_EMAIL not set in .env file"
+  [ -z "$GIT_TOKEN" ] && error "GIT_TOKEN not set in .env file (GitHub Personal Access Token required)"
+
+  confirm "Pull git repositories (workspace and project)?" || exit 0
+
+  info "Starting git pull..."
+
+  # Pull /workspace if it's a git repository
+  if [ -d "/workspace/.git" ]; then
+    pull_git_repo "/workspace" "${PROJECT_NAME}"
+  else
+    info "/workspace is not a git repository, skipping"
+  fi
+
+  # Pull /workspace/project if it's a git repository
+  if [ -d "/workspace/project/.git" ]; then
+    pull_git_repo "/workspace/project" "microservice"
+  else
+    info "/workspace/project is not a git repository, skipping"
+  fi
+
+  info "Git pull completed"
+}
+
+# Syncs git repositories (pull, then push)
+git_sync() {
+  load_env
+
+  # Verify required environment variables
+  [ -z "$GIT_USER" ] && error "GIT_USER not set in .env file"
+  [ -z "$GIT_EMAIL" ] && error "GIT_EMAIL not set in .env file"
+  [ -z "$GIT_TOKEN" ] && error "GIT_TOKEN not set in .env file (GitHub Personal Access Token required)"
+
+  confirm "Sync git repositories (pull + commit + push for workspace and project)?" || exit 0
+
+  info "Starting git sync..."
+
+  # Sync /workspace if it's a git repository
+  if [ -d "/workspace/.git" ]; then
+    pull_git_repo "/workspace" "${PROJECT_NAME}"
+    update_git_repo "/workspace" "${PROJECT_NAME}"
+  else
+    info "/workspace is not a git repository, skipping"
+  fi
+
+  # Sync /workspace/project if it's a git repository
+  if [ -d "/workspace/project/.git" ]; then
+    pull_git_repo "/workspace/project" "microservice"
+    update_git_repo "/workspace/project" "microservice"
+  else
+    info "/workspace/project is not a git repository, skipping"
+  fi
+
+  info "Git sync completed"
+}
+
+# Gunicorn management functions (wrappers to standalone scripts)
+gunicorn_start() {
+  /workspace/project/install/bin/gunicorn-start.sh
+}
+
+gunicorn_stop() {
+  /workspace/project/install/bin/gunicorn-stop.sh
+}
+
+gunicorn_restart() {
+  /workspace/project/install/bin/gunicorn-restart.sh
+}
+
+gunicorn_status() {
+  /workspace/project/install/bin/gunicorn-status.sh
+}
+
+db_configure_odbc() {
+  load_env
+
+  info "Configuring ODBC from .env settings..."
+
+  # Check template exists
+  TEMPLATE_FILE="/workspace/install/odbc/odbc.ini.template"
+  if [ ! -f "$TEMPLATE_FILE" ]; then
+    error "ODBC template not found: $TEMPLATE_FILE"
+  fi
+
+  # Read template
+  ODBC_CONTENT=$(cat "$TEMPLATE_FILE")
+
+  # Extract database path from SQLITE3_CONNECTION (file:/path/to/db.db)
+  SQLITE3_PATH=$(echo "$SQLITE3_CONNECTION" | sed 's|^file:||')
+
+  # Extract host from MariaDB connection string
+  MARIADB_HOST=$(echo "$MARIADB_CONNECTION" | grep -oP 'host=\K[^,]+' | head -1)
+  MARIADB_PORT=$(echo "$MARIADB_CONNECTION" | grep -oP 'port=\K[^,]+' | head -1)
+
+  # Extract host from PostgreSQL connection string
+  PGSQL_HOST=$(echo "$PGSQL_CONNECTION" | grep -oP 'host=\K[^,\s]+' | head -1)
+  PGSQL_PORT=$(echo "$PGSQL_CONNECTION" | grep -oP 'port=\K[^,\s]+' | head -1)
+
+  # Set defaults if not found
+  MARIADB_HOST=${MARIADB_HOST:-$MARIADB_CONTAINER}
+  MARIADB_PORT=${MARIADB_PORT:-3306}
+  PGSQL_HOST=${PGSQL_HOST:-$PGSQL_CONTAINER}
+  PGSQL_PORT=${PGSQL_PORT:-5432}
+
+  # Replace placeholders
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PROJECT_NAME}}|$PROJECT_NAME|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{SQLITE3_CONNECTION}}|$SQLITE3_PATH|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{MARIADB_HOST}}|$MARIADB_HOST|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{MARIADB_PORT}}|$MARIADB_PORT|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{MARIADB_NAME}}|$MARIADB_NAME|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{MARIADB_USER}}|$MARIADB_USER|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{MARIADB_PASSWORD}}|$MARIADB_PASSWORD|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PGSQL_HOST}}|$PGSQL_HOST|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PGSQL_PORT}}|$PGSQL_PORT|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PGSQL_NAME}}|$PGSQL_NAME|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PGSQL_USER}}|$PGSQL_USER|g")
+  ODBC_CONTENT=$(echo "$ODBC_CONTENT" | sed "s|{{PGSQL_PASSWORD}}|$PGSQL_PASSWORD|g")
+
+  # Write to /etc/odbc.ini
+  echo "$ODBC_CONTENT" > /etc/odbc.ini || error "Failed to write /etc/odbc.ini (permission denied?)"
+
+  info "ODBC configuration written to /etc/odbc.ini"
+
+  # Create symbolic link to odbc.ini in workspace config directory
+  mkdir -p /workspace/conf
+  ln -sf /etc/odbc.ini /workspace/conf/odbc.ini
+  info "ODBC configuration accessible at /workspace/conf/odbc.ini"
+
+  info "Available DSNs:"
+  info "  - ${PROJECT_NAME}_sqlite   (SQLite3)"
+  info "  - ${PROJECT_NAME}_mariadb  (MariaDB)"
+  info "  - ${PROJECT_NAME}_postgres (PostgreSQL)"
+}
+
+wa_status() {
+  # Load environment variables
+  [ -f /workspace/.env ] && . /workspace/.env
+  [ -f .env ] && . ./.env
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo "                         WEBAPP SERVICES STATUS"
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+
+  # Helper function to check if a process is running
+  check_process() {
+    local pid_file="$1"
+    local process_pattern="$2"
+
+    # Check PID file first
+    if [ -f "$pid_file" ]; then
+      PID=$(cat "$pid_file")
+      if ps -p $PID > /dev/null 2>&1; then
+        echo "running"
+        return 0
+      fi
+    fi
+
+    # Fallback to process pattern
+    if [ -n "$process_pattern" ]; then
+      if pgrep -f "$process_pattern" > /dev/null 2>&1; then
+        echo "running"
+        return 0
+      fi
+    fi
+
+    echo "stopped"
+    return 0  # Always return 0 to avoid exiting with set -e
+  }
+
+  # Nginx (reverse proxy)
+  NGINX_STATUS=$(pgrep -x nginx > /dev/null 2>&1 && echo "running" || echo "stopped")
+  NGINX_ICON=$([ "$NGINX_STATUS" = "running" ] && echo "✓" || echo "✗")
+
+  printf "%-25s %-10s %-25s %-20s\n" "SERVICE" "STATUS" "INTERNAL" "EXTERNAL (HOST)"
+  echo "───────────────────────────────────────────────────────────────────────────"
+
+  printf "%-25s %-10s %-25s %-20s\n" "nginx (Reverse Proxy)" "[$NGINX_ICON] $NGINX_STATUS" "0.0.0.0:2310" "localhost:2310"
+
+  # API Gateway (FastAPI/uvicorn)
+  AG_STATUS=$(check_process "/tmp/api.pid" "uvicorn.*main:app")
+  AG_ICON=$([ "$AG_STATUS" = "running" ] && echo "✓" || echo "✗")
+  API_HOST=${API_HOST:-127.0.0.1}
+  API_PORT=${API_PORT:-2310}
+
+  printf "%-25s %-10s %-25s %-20s\n" "API Gateway (FastAPI)" "[$AG_ICON] $AG_STATUS" "127.0.0.1:8000" "localhost:$API_PORT (via nginx)"
+
+  # GUI Dev Server (Vite)
+  FE_STATUS=$(check_process "/tmp/gui-dev.pid" "node.*vite")
+  FE_ICON=$([ "$FE_STATUS" = "running" ] && echo "✓" || echo "✗")
+  VITE_PORT=${VITE_PORT:-5173}
+
+  printf "%-25s %-10s %-25s %-20s\n" "GUI Dev (Vite)" "[$FE_ICON] $FE_STATUS" "0.0.0.0:$VITE_PORT" "localhost:$VITE_PORT"
+
+  # Database
+  if [ "$SQLITE3_ENABLED" = "y" ]; then
+    SQLITE3_DB_PATH=$(echo "${SQLITE3_CONNECTION:-file:/workspace/data/microcrm.db}" | sed 's/file://')
+    if [ -f "$SQLITE3_DB_PATH" ]; then
+      DB_STATUS="running"
+      DB_ICON="✓"
+    else
+      DB_STATUS="not found"
+      DB_ICON="✗"
+    fi
+    printf "%-25s %-10s %-25s %-20s\n" "Database (SQLite3)" "[$DB_ICON] $DB_STATUS" "$SQLITE3_DB_PATH" "N/A"
+  elif [ "$PGSQL_ENABLED" = "y" ]; then
+    PGSQL_PORT=$(echo "$PGSQL_CONNECTION" | grep -oP 'port=\K[^,\s]+' | head -1)
+    PGSQL_HOST=$(echo "$PGSQL_CONNECTION" | grep -oP 'host=\K[^,\s]+' | head -1)
+    printf "%-25s %-10s %-25s %-20s\n" "Database (PostgreSQL)" "[?] external" "$PGSQL_HOST:$PGSQL_PORT" "localhost:${PGSQL_PORT:-2340}"
+  elif [ "$MARIADB_ENABLED" = "y" ]; then
+    MARIADB_PORT=$(echo "$MARIADB_CONNECTION" | grep -oP 'port=\K[^,]+' | head -1)
+    MARIADB_HOST=$(echo "$MARIADB_CONNECTION" | grep -oP 'host=\K[^,]+' | head -1)
+    printf "%-25s %-10s %-25s %-20s\n" "Database (MariaDB)" "[?] external" "$MARIADB_HOST:$MARIADB_PORT" "localhost:${MARIADB_PORT:-2330}"
+  fi
+
+  # Redis
+  REDIS_STATUS=$(redis-cli ping 2>/dev/null | grep -q PONG && echo "running" || echo "stopped")
+  REDIS_ICON=$([ "$REDIS_STATUS" = "running" ] && echo "✓" || echo "✗")
+
+  printf "%-25s %-10s %-25s %-20s\n" "Redis (Cache/Session)" "[$REDIS_ICON] $REDIS_STATUS" "127.0.0.1:6379" "N/A"
+
+  # Find all microservices in /workspace/services/
+  if [ -d /workspace/services ]; then
+    for service_dir in /workspace/services/*/; do
+      if [ -d "$service_dir" ]; then
+        SERVICE_NAME=$(basename "$service_dir")
+        SERVICE_VAR=$(echo "$SERVICE_NAME" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+        BINARY_NAME=$(echo "$SERVICE_NAME" | sed 's/^mod_//')
+
+        # Get port from environment variable (e.g., MOD_STATUS_PORT)
+        eval "SERVICE_PORT=\${${SERVICE_VAR}_PORT}"
+        eval "SERVICE_HOST=\${${SERVICE_VAR}_HOST:-127.0.0.1}"
+
+        # Check if service is running (binary name without mod_ prefix)
+        MS_STATUS=$(check_process "/tmp/$SERVICE_NAME.pid" "$SERVICE_DIR/bin/$BINARY_NAME")
+        MS_ICON=$([ "$MS_STATUS" = "running" ] && echo "✓" || echo "✗")
+
+        if [ -n "$SERVICE_PORT" ]; then
+          printf "%-25s %-10s %-25s %-20s\n" "$SERVICE_NAME" "[$MS_ICON] $MS_STATUS" "$SERVICE_HOST:$SERVICE_PORT" "N/A (internal only)"
+        else
+          printf "%-25s %-10s %-25s %-20s\n" "$SERVICE_NAME" "[$MS_ICON] $MS_STATUS" "N/A (no port configured)" "N/A"
+        fi
+      fi
+    done
+  fi
+
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+  echo "Legend: ✓ = running, ✗ = stopped, ? = external/unknown"
+  echo ""
+  echo "Quick Test URLs:"
+  echo "  - API Gateway:  http://localhost:$API_PORT/api/status/health"
+  echo "  - API Docs:     http://localhost:$API_PORT/docs"
+  if [ "$FE_STATUS" = "running" ]; then
+    echo "  - GUI Dev: http://localhost:$VITE_PORT/"
+  fi
+  if [ "$MS_STATUS" = "running" ] && [ -n "$SERVICE_PORT" ]; then
+    echo "  - mod_status:   http://localhost:$SERVICE_PORT/health"
+  fi
+  echo ""
+}
+
+wa_monitor() {
+  # Load environment variables
+  [ -f /workspace/.env ] && . /workspace/.env
+  [ -f .env ] && . ./.env
+
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo "                    WEBAPP SERVICES - DETAILED MONITORING"
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+
+  echo "LISTENING PORTS & PROCESSES:"
+  echo "───────────────────────────────────────────────────────────────────────────"
+  printf "%-15s %-20s %-25s %-10s\n" "PORT" "PROCESS" "COMMAND" "PID"
+
+  # Get listening ports for webapp services
+  ss -tlnp 2>/dev/null | grep -E "nginx|uvicorn|mod_status|redis|vite|node.*5173" | while read line; do
+    PORT=$(echo "$line" | awk '{print $4}' | rev | cut -d: -f1 | rev)
+    PROCESS=$(echo "$line" | grep -oP 'users:\(\("\K[^"]+' || echo "unknown")
+    PID=$(echo "$line" | grep -oP 'pid=\K[0-9]+' || echo "?")
+    CMD=$(ps -p "$PID" -o comm= 2>/dev/null || echo "?")
+    printf "%-15s %-20s %-25s %-10s\n" "$PORT" "$PROCESS" "$CMD" "$PID"
+  done
+
+  echo ""
+  echo "RESOURCE USAGE (Active Processes):"
+  echo "───────────────────────────────────────────────────────────────────────────"
+  printf "%-25s %6s %6s %8s %s\n" "PROCESS" "CPU%" "MEM%" "PID" "COMMAND"
+
+  # Show only running processes (not defunct)
+  ps aux | grep -E "nginx: master|python.*uvicorn|mod_status|redis-server|node.*vite" | grep -v grep | grep -v defunct | \
+    awk '{printf "%-25s %6s %6s %8s %s\n", substr($11,1,25), $3, $4, $2, substr($0, index($0,$11))}'
+
+  echo ""
+  echo "SYSTEM RESOURCES:"
+  echo "───────────────────────────────────────────────────────────────────────────"
+
+  # CPU info
+  CPU_COUNT=$(nproc)
+  LOAD=$(uptime | awk -F'load average:' '{print $2}')
+  echo "CPU Cores: $CPU_COUNT | Load Average:$LOAD"
+
+  # Memory info
+  free -h | grep -E "Mem:|Swap:"
+
+  echo ""
+  echo "DISK USAGE (workspace):"
+  echo "───────────────────────────────────────────────────────────────────────────"
+  df -h /workspace | tail -1 | awk '{printf "Total: %s | Used: %s | Available: %s | Use%%: %s\n", $2, $3, $4, $5}'
+
+  # Database size if SQLite
+  if [ "$SQLITE3_ENABLED" = "y" ]; then
+    SQLITE3_DB_PATH=$(echo "${SQLITE3_CONNECTION:-file:/workspace/data/microcrm.db}" | sed 's/file://')
+    if [ -f "$SQLITE3_DB_PATH" ]; then
+      DB_SIZE=$(du -h "$SQLITE3_DB_PATH" | cut -f1)
+      echo "Database: $SQLITE3_DB_PATH ($DB_SIZE)"
+    fi
+  fi
+
+  echo ""
+  echo "NETWORK CONNECTIONS:"
+  echo "───────────────────────────────────────────────────────────────────────────"
+  printf "%-15s %-25s %-25s %-10s\n" "PROTO" "LOCAL ADDRESS" "STATE" "PROCESS"
+  ss -tnp 2>/dev/null | grep -E "nginx|uvicorn|mod_status|vite" | head -10 | \
+    awk '{printf "%-15s %-25s %-25s %s\n", $1, $4, $5, $6}'
+
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+  echo "Press 'wa htop' for interactive monitoring"
+  echo ""
+}
+
+wa_htop() {
+  # Check if htop is installed
+  if ! command -v htop >/dev/null 2>&1; then
+    error "htop not installed. Install with: apt-get install htop"
+  fi
+
+  # Get PIDs of webapp processes
+  PIDS=$(ps aux | grep -E "nginx: master|python.*uvicorn|mod_status|redis-server|node.*vite" | grep -v grep | awk '{print $2}' | tr '\n' ',' | sed 's/,$//')
+
+  if [ -z "$PIDS" ]; then
+    warn "No webapp processes running. Starting htop anyway..."
+    exec htop
+  else
+    info "Launching htop filtered for webapp processes..."
+    info "Inside htop: F5=tree view, F6=sort, F9=kill, F10/q=quit"
+    sleep 2
+    exec htop -p "$PIDS"
+  fi
+}
+
+# Check if running inside container
+[ -f /.dockerenv ] || [ -n "$CONTAINER" ] || error "Must run inside container"
+
+# Parse command
+[ $# -eq 0 ] && show_help
+
+COMMAND="$1"
+shift
+
+case "$COMMAND" in
+  --help|-h)
+    show_help
+    ;;
+
+  status)
+    wa_status
+    ;;
+
+  monitor)
+    wa_monitor
+    ;;
+
+  htop)
+    wa_htop
+    ;;
+
+  db)
+    # Parse db subcommand
+    if [ $# -eq 0 ]; then
+      # No options - open interactive CLI
+      db_cli ""
+      exit 0
+    fi
+
+    # Check for action
+    DB_ACTION="$1"
+    shift
+
+    case "$DB_ACTION" in
+      conf)
+        # Configure ODBC
+        db_configure_odbc
+        ;;
+      -f)
+        # Execute SQL file
+        [ -z "$1" ] && error "Option -f requires a file path"
+        db_cli "$1"
+        ;;
+      *)
+        error "Unknown db action: $DB_ACTION. Valid actions: conf, -f. Use 'wa --help' for usage"
+        ;;
+    esac
+    ;;
+
+  service|ms)
+    # Parse microservice subcommand
+    [ $# -eq 0 ] && error "Microservice action required. Use 'wa --help' for usage information"
+
+    MS_ACTION="$1"
+    shift
+
+    MS_NAME=""
+
+    # Parse options
+    while [ $# -gt 0 ]; do
+      case $1 in
+        -n)
+          shift
+          [ -z "$1" ] && error "Option -n requires a microservice name"
+          MS_NAME="$1"
+          shift
+          ;;
+        *)
+          error "Unknown option for 'ms $MS_ACTION': $1. Use 'wa --help' for usage information"
+          ;;
+      esac
+    done
+
+    # Execute microservice action
+    case "$MS_ACTION" in
+      build)
+        service_build "$MS_NAME"
+        ;;
+      restart)
+        service_restart "$MS_NAME"
+        ;;
+      *)
+        error "Unknown microservice action: $MS_ACTION. Valid actions: build, restart"
+        ;;
+    esac
+    ;;
+
+  gui|fe)
+    # Parse GUI subcommand
+    [ $# -eq 0 ] && error "GUI action required. Use 'wa --help' for usage information"
+
+    FE_ACTION="$1"
+    shift
+
+    # Execute GUI action
+    case "$FE_ACTION" in
+      build)
+        fe_build
+        ;;
+      *)
+        error "Unknown GUI action: $FE_ACTION. Valid action: build"
+        ;;
+    esac
+    ;;
+
+  redis)
+    # Parse Redis subcommand
+    [ $# -eq 0 ] && error "Redis action required. Use 'wa --help' for usage information"
+
+    REDIS_ACTION="$1"
+    shift
+
+    # Execute Redis action
+    case "$REDIS_ACTION" in
+      status)
+        redis_status
+        ;;
+      info)
+        redis_info
+        ;;
+      *)
+        error "Unknown Redis action: $REDIS_ACTION. Valid actions: status, info"
+        ;;
+    esac
+    ;;
+
+  gunicorn)
+    # Parse Gunicorn subcommand
+    [ $# -eq 0 ] && error "Gunicorn action required. Use 'wa --help' for usage information"
+
+    GUNICORN_ACTION="$1"
+    shift
+
+    # Execute Gunicorn action
+    case "$GUNICORN_ACTION" in
+      start)
+        gunicorn_start
+        ;;
+      stop)
+        gunicorn_stop
+        ;;
+      restart)
+        gunicorn_restart
+        ;;
+      status)
+        gunicorn_status
+        ;;
+      *)
+        error "Unknown Gunicorn action: $GUNICORN_ACTION. Valid actions: start, stop, restart, status"
+        ;;
+    esac
+    ;;
+
+  enable)
+    [ $# -eq 0 ] && error "Service name required. Use 'wa enable <service>'"
+    service_enable "$1"
+    ;;
+
+  disable)
+    [ $# -eq 0 ] && error "Service name required. Use 'wa disable <service>'"
+    service_disable "$1"
+    ;;
+
+  list)
+    service_list
+    ;;
+
+  git)
+    # Parse git subcommand
+    [ $# -eq 0 ] && error "Git action required. Use 'wa --help' for usage information"
+
+    GIT_ACTION="$1"
+    shift
+
+    # Execute git action
+    case "$GIT_ACTION" in
+      push)
+        git_push
+        ;;
+      pull)
+        git_pull
+        ;;
+      sync)
+        git_sync
+        ;;
+      *)
+        error "Unknown git action: $GIT_ACTION. Valid actions: push, pull, sync"
+        ;;
+    esac
+    ;;
+
+  *)
+    error "Unknown command: $COMMAND. Use 'wa --help' for usage information"
+    ;;
+esac

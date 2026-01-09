@@ -1,0 +1,4 @@
+#!/bin/sh
+# Start mod_status C++ microservice
+cd /app/services/mod_status
+exec ./bin/status

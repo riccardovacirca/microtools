@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+# Production Installation Script
+# Loads Docker image and starts the container
+#
+
+set -euo pipefail
+
+info() { echo -e "\033[0;34m[INFO]\033[0m $*"; }
+error() { echo -e "\033[0;31m[ERROR]\033[0m $*" >&2; exit 1; }
+step() { echo -e "\n\033[1;36m==>\033[0m \033[1m$*\033[0m\n"; }
+
+# Configuration
+PROJECT_NAME="__PROJECT_NAME__"
+VERSION="__VERSION__"
+IMAGE_NAME="${PROJECT_NAME}:${VERSION}"
+CONTAINER_NAME="${PROJECT_NAME}-prod"
+TAR_FILE="__RELEASE_NAME__.tar.gz"
+
+# Validate Docker
+command -v docker >/dev/null 2>&1 || error "Docker is not installed"
+docker info >/dev/null 2>&1 || error "Docker daemon is not running"
+
+# Load image
+step "Loading Docker image from ${TAR_FILE}..."
+[[ -f "$TAR_FILE" ]] || error "Image file not found: $TAR_FILE"
+docker load -i "$TAR_FILE" || error "Failed to load Docker image"
+
+# Stop existing container
+if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+    step "Stopping existing container..."
+    docker stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
+fi
+
+# Start container
+step "Starting production container..."
+docker run -d \
+    --name "$CONTAINER_NAME" \
+    -p 80:80 \
+    -p 443:443 \
+    -v "${CONTAINER_NAME}-data:/app/data" \
+    -v "${CONTAINER_NAME}-logs:/app/logs" \
+    --restart unless-stopped \
+    "$IMAGE_NAME" || error "Failed to start container"
+
+# Wait for health check
+step "Waiting for service to be ready..."
+sleep 5
+for i in {1..30}; do
+    if docker exec "$CONTAINER_NAME" curl -sf http://localhost/ >/dev/null 2>&1; then
+        info "Service is ready!"
+        break
+    fi
+    [[ $i -eq 30 ]] && warn "Health check timeout, but container is running"
+    sleep 1
+done
+
+# Show status
+step "Installation complete!"
+info "Container: $CONTAINER_NAME"
+info "Image: $IMAGE_NAME"
+info "Status: $(docker ps --filter name=$CONTAINER_NAME --format '{{.Status}}')"
+info ""
+info "Access the application at: http://localhost"
+info "View logs: docker logs -f $CONTAINER_NAME"

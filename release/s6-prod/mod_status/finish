@@ -1,0 +1,4 @@
+#!/bin/sh
+# Cleanup on service termination
+pkill -TERM status 2>/dev/null || true
+exit 0

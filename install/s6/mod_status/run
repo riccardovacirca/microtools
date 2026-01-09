@@ -1,0 +1,9 @@
+#!/bin/sh
+# Load environment variables from .env
+if [ -f /workspace/.env ]; then
+  set -a
+  . /workspace/.env
+  set +a
+fi
+cd /workspace/services/mod_status
+exec ./bin/status

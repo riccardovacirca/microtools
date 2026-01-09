@@ -1,0 +1,1 @@
+-- @require mariadb/schema_uninstall.sql

@@ -1,0 +1,33 @@
+# ODBC Data Sources Configuration
+# Auto-generated from template - DO NOT EDIT MANUALLY
+# Use 'wa db conf' to regenerate from .env settings
+
+# SQLite3 DSN - Local file-based database
+[{{PROJECT_NAME}}_sqlite]
+Description=SQLite3 database for {{PROJECT_NAME}}
+Driver=SQLite3
+Database={{SQLITE3_CONNECTION}}
+Timeout=5000
+
+# MariaDB DSN - Network database (if enabled)
+[{{PROJECT_NAME}}_mariadb]
+Description=MariaDB database for {{PROJECT_NAME}}
+Driver=MariaDB
+Server={{MARIADB_HOST}}
+Port={{MARIADB_PORT}}
+Database={{MARIADB_NAME}}
+User={{MARIADB_USER}}
+Password={{MARIADB_PASSWORD}}
+Option=3
+
+# PostgreSQL DSN - Network database (if enabled)
+[{{PROJECT_NAME}}_postgres]
+Description=PostgreSQL database for {{PROJECT_NAME}}
+Driver=PostgreSQL
+Servername={{PGSQL_HOST}}
+Port={{PGSQL_PORT}}
+Database={{PGSQL_NAME}}
+Username={{PGSQL_USER}}
+Password={{PGSQL_PASSWORD}}
+ReadOnly=No
+Protocol=7.4-1

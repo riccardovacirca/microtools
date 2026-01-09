@@ -1,0 +1,3 @@
+#!/usr/bin/execlineb -S0
+# Graceful shutdown - s6 handles SIGTERM
+exit 0

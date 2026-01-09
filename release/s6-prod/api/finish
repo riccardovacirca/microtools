@@ -1,0 +1,4 @@
+#!/bin/sh
+# Graceful shutdown of gunicorn workers
+pkill -TERM gunicorn 2>/dev/null || true
+exit 0

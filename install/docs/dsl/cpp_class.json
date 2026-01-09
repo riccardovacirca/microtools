@@ -1,0 +1,220 @@
+{
+  "dsl_name": "microtools_cpp_style",
+  "version": "1.4",
+  "description": "DSL per definire lo stile di codifica C++98 potenziato con sintassi esplicita",
+  
+  "language_profile": {
+    "base_standard": "C++98",
+    "allowed_modern_features": [
+      {
+        "feature": "std::unique_ptr",
+        "standard": "C++11",
+        "reason": "Gestione memoria automatica e sicura - OBBLIGATORIO per allocazione heap",
+        "usage": "SEMPRE per allocazione dinamica, mai raw pointers"
+      },
+      {
+        "feature": "std::variant",
+        "standard": "C++17",
+        "reason": "Type-safe union per valori eterogenei",
+        "usage": "Per rappresentare valori di tipi diversi"
+      },
+      {
+        "feature": "#pragma once",
+        "standard": "compiler extension",
+        "reason": "Header guard più pulito e conciso",
+        "usage": "Preferito rispetto a #ifndef/#define tradizionale"
+      },
+      {
+        "feature": "auto keyword",
+        "standard": "C++11",
+        "reason": "EVITATO - preferire tipi espliciti",
+        "usage": "Non usare, sempre esplicito"
+      }
+    ]
+  },
+  
+  "syntax_rules": {
+    "explicitness": {
+      "principle": "Sintassi totalmente esplicita - no costrutti impliciti",
+      "rules": [
+        {
+          "rule": "constructor_initialization",
+          "style": "explicit_body_assignment",
+          "forbidden": "Constructor() : member_(value) {}",
+          "required": "Constructor() {\n  member_ = value;\n}",
+          "reason": "Assegnamento visibile nel corpo"
+        },
+        {
+          "rule": "type_declaration",
+          "style": "explicit_types",
+          "forbidden": "auto value = getValue();",
+          "required": "std::string value = getValue();",
+          "reason": "Tipo sempre dichiarato esplicitamente"
+        }
+      ]
+    },
+    
+    "formatting": {
+      "style": "compact_readable",
+      "rules": [
+        {
+          "rule": "indentation",
+          "style": "2_spaces",
+          "example": "void method() {\n  if (condition) {\n    doSomething();\n  }\n}",
+          "forbidden": "tabs, 4 spaces",
+          "reason": "Indentazione a 2 spazi"
+        },
+        {
+          "rule": "no_blank_lines_in_function_body",
+          "style": "compact",
+          "forbidden": "void method() {\n  int x = 5;\n\n  return x * 2;\n}",
+          "required": "void method() {\n  int x = 5;\n  return x * 2;\n}",
+          "reason": "Corpo funzione compatto senza righe vuote"
+        },
+        {
+          "rule": "empty_functions",
+          "style": "single_line",
+          "example": "Constructor() {}",
+          "reason": "Funzioni vuote su una riga"
+        },
+        {
+          "rule": "simple_methods",
+          "style": "single_line_when_trivial",
+          "example": "void clear() { buffer_->clear(); }",
+          "reason": "Metodi semplici compatti"
+        },
+        {
+          "rule": "braces",
+          "style": "egyptian",
+          "example": "if (condition) {\n  code;\n}",
+          "reason": "Graffa apertura su stessa riga"
+        },
+        {
+          "rule": "reference_symbol_placement",
+          "style": "llvm",
+          "required": "const std::string &name",
+          "forbidden": "const std::string& name",
+          "reason": "Simbolo & accanto alla variabile (stile LLVM), non al tipo"
+        }
+      ]
+    },
+    
+    "documentation": {
+      "principle": "Ogni funzione pubblica nei file .h DEVE essere documentata con Doxygen",
+      "rules": [
+        {
+          "rule": "mandatory_doxygen_comments",
+          "scope": "header files (.h)",
+          "target": "all public methods and functions",
+          "style": "doxygen_javadoc",
+          "required_tags": ["@brief", "@param (se presenti parametri)", "@return (se non void)"],
+          "example": "/**\n * @brief Connects to database\n * @param connection_string DSN connection string\n */\nvoid connect(const std::string& connection_string);",
+          "reason": "Documentazione chiara e generabile automaticamente"
+        },
+        {
+          "rule": "no_implementation_comments",
+          "scope": "implementation files (.cpp)",
+          "principle": "Niente commenti nei file .cpp, solo codice",
+          "reason": "Documentazione solo nei file .h, codice autoesplicativo"
+        }
+      ]
+    },
+    
+    "naming_conventions": {
+      "classes": {
+        "style": "PascalCase",
+        "example": "DB, File, Logger"
+      },
+      "methods": {
+        "style": "snake_case",
+        "example": "connect(), cursor_open()"
+      },
+      "private_members": {
+        "style": "snake_case_with_trailing_underscore",
+        "example": "connection_, cursor_"
+      },
+      "namespaces": {
+        "style": "lowercase_short",
+        "example": "mt"
+      }
+    }
+  },
+  
+  "design_principles": {
+    "simplicity_first": {
+      "prefer_typedef_over_wrapper": "typedef quando classe base ha già tutti i metodi",
+      "wrapper_only_when_needed": "classe wrapper solo per logica custom o RAII"
+    },
+    
+    "memory_management": {
+      "mandatory_unique_ptr": {
+        "principle": "OBBLIGATORIO unique_ptr per allocazione heap",
+        "forbidden": "Type* ptr = new Type();",
+        "required": "std::unique_ptr<Type> ptr = std::make_unique<Type>();"
+      },
+      "no_manual_delete": "Mai delete esplicito, unique_ptr gestisce tutto",
+      "explicit_assignment": "Assegnamento nel corpo costruttore: ptr_ = std::make_unique<T>();"
+    },
+    
+    "parameter_passing": {
+      "default": "const reference per oggetti: const Type&",
+      "output": "reference per output: Type&",
+      "primitives": "by value per int, bool, char",
+      "forbidden": "by value per std::string, containers, oggetti"
+    }
+  },
+  
+  "anti_patterns": {
+    "avoid": [
+      {
+        "pattern": "initialization_list",
+        "forbidden": "Class() : ptr_(value) {}",
+        "reason": "Assegnamento nascosto"
+      },
+      {
+        "pattern": "auto_keyword",
+        "forbidden": "auto value = func();",
+        "reason": "Tipo non esplicito"
+      },
+      {
+        "pattern": "raw_pointers_ownership",
+        "forbidden": "Type* owned_;",
+        "reason": "Usare unique_ptr"
+      },
+      {
+        "pattern": "pass_by_value_objects",
+        "forbidden": "void func(std::string s)",
+        "reason": "Usare const reference"
+      },
+      {
+        "pattern": "blank_lines_in_functions",
+        "forbidden": "void f() {\n  x = 1;\n\n  return x;\n}",
+        "reason": "Corpo compatto senza righe vuote"
+      },
+      {
+        "pattern": "undocumented_public_methods",
+        "forbidden": "void connect(const std::string &dsn);",
+        "required": "/**\n * @brief Connects to database\n * @param dsn Connection string\n */\nvoid connect(const std::string &dsn);",
+        "reason": "Doxygen obbligatorio nei file .h"
+      },
+      {
+        "pattern": "wrong_reference_symbol_placement",
+        "forbidden": "void func(const Type& arg)",
+        "required": "void func(const Type &arg)",
+        "reason": "Stile LLVM: & accanto alla variabile"
+      }
+    ]
+  },
+  
+  "examples": {
+    "documented_header": {
+      "file": "File.h",
+      "code": "#pragma once\n\n#include <string>\n\nnamespace mt {\n\n/**\n * @brief File I/O handler\n */\nclass File {\npublic:\n  /**\n   * @brief Constructor\n   * @param path File path\n   */\n  File(const std::string& path);\n  \n  /**\n   * @brief Opens the file\n   */\n  void open();\n  \n  /**\n   * @brief Reads entire file content\n   * @return File content as string\n   */\n  std::string read();\n  \nprivate:\n  std::string path_;\n};\n\n}  // namespace mt"
+    },
+    
+    "compact_implementation": {
+      "file": "File.cpp",
+      "code": "#include \"File.h\"\n#include <fstream>\n\nnamespace mt {\n\nFile::File(const std::string& path) {\n  path_ = path;\n}\n\nvoid File::open() {\n  stream_ = std::make_unique<std::fstream>();\n  stream_->open(path_.c_str());\n  if (!stream_->is_open()) {\n    throw std::runtime_error(\"Cannot open: \" + path_);\n  }\n}\n\nstd::string File::read() {\n  std::ostringstream buffer;\n  buffer << stream_->rdbuf();\n  return buffer.str();\n}\n\n}  // namespace mt"
+    }
+  }
+}

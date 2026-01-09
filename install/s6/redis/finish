@@ -1,0 +1,3 @@
+#!/usr/bin/execlineb -S0
+foreground { redirfd -w 1 /dev/null redirfd -w 2 /dev/null redis-cli shutdown }
+exit 0

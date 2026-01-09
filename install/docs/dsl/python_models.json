@@ -1,0 +1,156 @@
+{
+  "name": "pydantic-models-python",
+  "description": "Define Pydantic validation models in models.py for application functions. MANDATORY separation of validation models from business logic.",
+  "role": "Expert Python developer for data validation models. Enforce Pydantic BaseModel patterns with complete type safety and validation constraints.",
+  "template": {
+    "file_structure": {
+      "filename": "models.py (MANDATORY filename)",
+      "location": "same directory as application functions",
+      "purpose": "centralized location for all Pydantic validation models",
+      "organization": "group related models together, ordered by dependency (nested models first)"
+    },
+    "imports": {
+      "required": [
+        "from typing import List, Dict, Any, Optional",
+        "from pydantic import BaseModel, Field"
+      ],
+      "optional": [
+        "from typing import Union (if needed for complex types)",
+        "from pydantic import validator (for custom validation)"
+      ]
+    },
+    "model_declaration": {
+      "syntax": "class ModelName(BaseModel):\n    \"\"\"Docstring describing the model and its purpose.\"\"\"\n    field_name: Type = Field(..., <constraints>)",
+      "constraints": {
+        "naming": "PascalCase, descriptive noun (e.g., OrderData, UserProfile)",
+        "docstring": "REQUIRED: clear description of what this model represents",
+        "inheritance": "always inherit from BaseModel",
+        "field_order": "logical grouping - required fields first, optional fields last",
+        "type_hints": "mandatory for all fields"
+      },
+      "example": "class OrderItem(BaseModel):\n    \"\"\"Single item in an order with quantity and price.\"\"\"\n    quantity: int = Field(..., ge=1)\n    price: float = Field(..., ge=0)"
+    },
+    "field_definition": {
+      "required_fields": {
+        "syntax": "field_name: Type = Field(...)",
+        "marker": "... indicates required field",
+        "constraints": "add validation constraints in Field()",
+        "example": "quantity: int = Field(..., ge=1, le=1000)"
+      },
+      "optional_fields": {
+        "syntax": "field_name: Type | None = Field(default=None)",
+        "default": "use Field(default=value) or Field(default=None)",
+        "no_optional": "use | None instead of Optional",
+        "example": "description: str | None = Field(default=None, max_length=500)"
+      },
+      "nested_models": {
+        "syntax": "field_name: List[NestedModel] = Field(...)",
+        "order": "define nested models before parent models",
+        "example": "items: List[OrderItem] = Field(..., min_items=1)"
+      }
+    },
+    "field_constraints": {
+      "numeric": {
+        "ge": "greater than or equal",
+        "gt": "greater than",
+        "le": "less than or equal",
+        "lt": "less than",
+        "multiple_of": "must be multiple of this value",
+        "examples": [
+          "age: int = Field(..., ge=0, le=150)",
+          "price: float = Field(..., gt=0)",
+          "quantity: int = Field(..., ge=1, multiple_of=1)"
+        ]
+      },
+      "string": {
+        "min_length": "minimum string length",
+        "max_length": "maximum string length",
+        "regex": "regular expression pattern",
+        "examples": [
+          "username: str = Field(..., min_length=3, max_length=50)",
+          "email: str = Field(..., regex=r'^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$')",
+          "shipping_address: str = Field(..., min_length=10)"
+        ]
+      },
+      "collections": {
+        "min_items": "minimum list length",
+        "max_items": "maximum list length",
+        "unique_items": "all items must be unique",
+        "examples": [
+          "items: List[OrderItem] = Field(..., min_items=1, max_items=100)",
+          "tags: List[str] = Field(default=[], max_items=10)"
+        ]
+      }
+    },
+    "nested_models": {
+      "required": true,
+      "pattern": "define simple models first, then compose them into complex models",
+      "benefits": [
+        "reusable components",
+        "clear validation hierarchy",
+        "type-safe nested structures"
+      ],
+      "example": "# Simple model (define first)\nclass OrderItem(BaseModel):\n    \"\"\"Single item in an order.\"\"\"\n    quantity: int = Field(..., ge=1)\n    price: float = Field(..., ge=0)\n\n# Complex model using nested model\nclass OrderData(BaseModel):\n    \"\"\"Complete order data structure.\"\"\"\n    items: List[OrderItem] = Field(..., min_items=1)\n    shipping_address: str = Field(..., min_length=10)"
+    },
+    "docstrings": {
+      "required": true,
+      "format": "single-line or multi-line docstring describing the model",
+      "content": [
+        "what the model represents",
+        "when it should be used",
+        "any important constraints or business rules"
+      ],
+      "examples": {
+        "simple": "\"\"\"User authentication credentials.\"\"\"",
+        "detailed": "\"\"\"Order data structure containing items and shipping information.\n\nUsed for order processing in application functions.\nValidates that orders have at least one item and valid shipping address.\n\"\"\""
+      }
+    },
+    "forbidden_constructs": [
+      "models without docstrings",
+      "fields without type hints",
+      "using Optional instead of | None",
+      "mutable default values (use Field(default_factory=...) instead)",
+      "defining models in application function files",
+      "models not inheriting from BaseModel",
+      "validation logic in models (use application function Err flags instead)",
+      "function parameter Field() definitions (those go inline in function parameters, not in models.py)"
+    ],
+    "required_constructs": [
+      "inherit from BaseModel",
+      "docstrings on all model classes",
+      "type hints on all fields",
+      "Field(...) for required fields with constraints",
+      "Field(default=...) for optional fields",
+      "nested models for complex structures",
+      "validation constraints (ge, le, min_length, etc.) where appropriate"
+    ],
+    "best_practices": {
+      "ordering": "define nested models before parent models that use them",
+      "granularity": "create separate models for distinct concepts, even if similar",
+      "reusability": "design models to be reusable across multiple functions",
+      "documentation": "comprehensive docstrings help users understand data structures",
+      "constraints": "add all validation constraints in Field() - let Pydantic do the work",
+      "simplicity": "keep models focused on structure and validation, not business logic"
+    },
+    "complete_example": {
+      "description": "Complete models.py file with multiple models",
+      "code": "from typing import List\nfrom pydantic import BaseModel, Field\n\n# =========================\n# Pydantic validation models\n# =========================\n\nclass OrderItem(BaseModel):\n    \"\"\"Single item in an order with quantity and price validation.\"\"\"\n    quantity: int = Field(..., ge=1, le=1000)\n    price: float = Field(..., ge=0)\n    product_id: str = Field(..., min_length=1, max_length=50)\n    description: str | None = Field(default=None, max_length=200)\n\nclass OrderData(BaseModel):\n    \"\"\"Complete order data structure with items and shipping information.\n    \n    Used by order processing application functions.\n    Validates minimum order requirements and address format.\n    \"\"\"\n    items: List[OrderItem] = Field(..., min_items=1, max_items=100)\n    shipping_address: str = Field(..., min_length=10, max_length=500)\n    notes: str | None = Field(default=None, max_length=1000)\n\nclass UserProfile(BaseModel):\n    \"\"\"User profile information with validated constraints.\"\"\"\n    user_id: int = Field(..., ge=1)\n    username: str = Field(..., min_length=3, max_length=50)\n    email: str = Field(..., regex=r'^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$')\n    age: int | None = Field(default=None, ge=0, le=150)"
+    },
+    "summary": [
+      "MANDATORY filename: models.py",
+      "all Pydantic BaseModel CLASSES in single models.py file",
+      "inherit from BaseModel",
+      "docstrings required on all models",
+      "type hints required on all fields",
+      "Field(...) for required model fields (in BaseModel classes)",
+      "Field(default=...) for optional model fields",
+      "use | None instead of Optional",
+      "comprehensive validation constraints (ge, le, min_length, etc.)",
+      "nested models for complex structures",
+      "define nested models before parent models",
+      "no business logic in models - only structure and validation",
+      "models are reusable across multiple application functions",
+      "IMPORTANT: function parameter Field() constraints go inline in functions, NOT in models.py"
+    ]
+  }
+}
