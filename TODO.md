@@ -134,7 +134,8 @@
 
 - rendere minimalista l'output del comando wa
 
-- rinominare il progetto in microtools
+- [OK]
+  rinominare il progetto in microtools
 
 - rinominare il comando wa in mt
 
