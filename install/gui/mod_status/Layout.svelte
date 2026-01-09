@@ -1,4 +1,6 @@
-<script>
+<script type="module">
+  import Info from "./Info.svelte";
+
   let activeTab = "project";
 
   const tabs = [{ id: "project", label: "Project Information" }];

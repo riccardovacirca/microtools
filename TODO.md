@@ -141,7 +141,8 @@
   rinominare il comando wa in mt
 
 - le cartelle project e install potrebbero essere prefissate con un . come le
-  altre tabelle di servizio. la cartella project
+  altre tabelle di servizio. la cartella project potrebbe essere rinominata in
+  .prototype
 
 - il comando mt git push potrebbe avere una opzione -m per il messaggio di commit
   se non specificato viene usato il messaggio di default
@@ -149,3 +150,8 @@
 - Verificare che il modulo /workspace/gui/src/mod_status della gui sia collegato
   correttamente all'endpoint /api/status/info ed esponga graficamente il valore
   restituito da esso.
+
+- [BUG]
+  Query SQL non eseguite durante il setup
+  Microservice C++ non compilato, abilitato e avviato durante il setup
+  Microservice C++ automaticamente abilitato e avviato con mt service build
