@@ -36,7 +36,7 @@ install_claude() {
   command -v claude >/dev/null 2>&1 || error "Claude Code installation verification failed"
 
   # Copy Claude Code configuration
-  if [ -d "/workspace/project/install/.claude" ]; then
+  if [ -d "/workspace/.prototype/install/.claude" ]; then
     info "Installing Claude Code configuration..."
 
     # Preserve settings.local.json if exists
@@ -45,7 +45,7 @@ install_claude() {
     fi
 
     rm -rf /workspace/.claude
-    cp -r /workspace/project/install/.claude /workspace/.claude
+    cp -r /workspace/.prototype/install/.claude /workspace/.claude
 
     # Restore settings.local.json
     if [ -f "/tmp/claude-settings.local.json.bak" ]; then
@@ -56,7 +56,7 @@ install_claude() {
 
     info "Claude Code configuration installed at /workspace/.claude"
   else
-    warn "Claude Code configuration not found in /workspace/project/install/.claude"
+    warn "Claude Code configuration not found in /workspace/.prototype/install/.claude"
   fi
 
   info "Claude Code installation completed"
@@ -130,16 +130,16 @@ done
 
 info "Setting up nginx+FastAPI API gateway..."
 
-# Replace install.sh with symlink to project/install.sh
-if [ -f /workspace/install.sh ] && [ ! -L /workspace/install.sh ] && [ -f /workspace/project/install.sh ]; then
-  info "Replacing install.sh with symbolic link to project/install.sh..."
+# Replace install.sh with symlink to .prototype/install.sh
+if [ -f /workspace/install.sh ] && [ ! -L /workspace/install.sh ] && [ -f /workspace/.prototype/install.sh ]; then
+  info "Replacing install.sh with symbolic link to .prototype/install.sh..."
   rm -f /workspace/install.sh
-  ln -sf project/install.sh /workspace/install.sh || warn "Failed to create install.sh symlink"
+  ln -sf .prototype/install.sh /workspace/install.sh || warn "Failed to create install.sh symlink"
 fi
 
-# Remove system, vscode, docs from workspace if install is a symlink to project/install
-if [ -L /workspace/install ] && [ -d /workspace/project/install ]; then
-  info "Cleaning up workspace directories (using project/install as source)..."
+# Remove system, vscode, docs from workspace if install is a symlink to .prototype/install
+if [ -L /workspace/install ] && [ -d /workspace/.prototype/install ]; then
+  info "Cleaning up workspace directories (using .prototype/install as source)..."
 
   if [ -d /workspace/system ] && [ ! -L /workspace/system ]; then
     rm -rf /workspace/system
@@ -210,9 +210,9 @@ else
 fi
 
 # Compile and install microtools library (required by C++ modules)
-if [ -d /workspace/project/install/lib/microtools ]; then
+if [ -d /workspace/.prototype/install/lib/microtools ]; then
   info "Compiling microtools static library..."
-  cd /workspace/project/install/lib/microtools
+  cd /workspace/.prototype/install/lib/microtools
   mkdir -p build
   cd build
   if cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1; then
@@ -230,10 +230,10 @@ if [ -d /workspace/project/install/lib/microtools ]; then
   fi
   cd /workspace
 else
-  warn "microtools library not found in project/install/lib"
+  warn "microtools library not found in .prototype/install/lib"
 fi
 
-# Copy bin directory with utilities (only if install is not a symlink to project/install)
+# Copy bin directory with utilities (only if install is not a symlink to .prototype/install)
 if [ -d /workspace/install/bin ] && [ ! -L /workspace/install ]; then
   info "Copying utility scripts from install/bin..."
   cp -r /workspace/install/bin /workspace/
@@ -335,13 +335,13 @@ else
   warn "install/s6 directory not found, skipping s6 service installation"
 fi
 
-# Create symlinks to bin utilities in project/install/bin
-if [ -d /workspace/project/install/bin ]; then
-  info "Creating symbolic links to project/install/bin utilities..."
+# Create symlinks to bin utilities in .prototype/install/bin
+if [ -d /workspace/.prototype/install/bin ]; then
+  info "Creating symbolic links to .prototype/install/bin utilities..."
 
   # Remove existing files/symlinks and create new symlinks
   rm -f /workspace/bin/mt
-  ln -sf /workspace/project/install/bin/mt /workspace/bin/mt || warn "Failed to create mt symlink"
+  ln -sf /workspace/.prototype/install/bin/mt /workspace/bin/mt || warn "Failed to create mt symlink"
 fi
 
 # Add /workspace/bin to system PATH
@@ -492,16 +492,16 @@ fi
 
 # Vite dev server (disabled by default, managed by s6 if enabled)
 
-# Check if Svelte project needs to be created or just updated
+# Check if Svelte .prototype needs to be created or just updated
 PROJECT_EXISTS=false
 if [ -f "/workspace/gui/package.json" ] && [ -d "/workspace/gui/node_modules" ]; then
   PROJECT_EXISTS=true
-  info "Svelte project exists, updating dependencies..."
+  info "Svelte .prototype exists, updating dependencies..."
 else
   info "Installing Svelte with Vite..."
 fi
 
-# Remove Svelte app structure (but keep package.json and node_modules if project exists)
+# Remove Svelte app structure (but keep package.json and node_modules if .prototype exists)
 if [ -d "/workspace/gui" ]; then
   cd /workspace/gui
   rm -rf src/ public/ .vscode/
@@ -513,12 +513,12 @@ if [ -d "/workspace/gui" ]; then
   cd /workspace
 fi
 
-# Create/recreate Svelte project only if needed
+# Create/recreate Svelte .prototype only if needed
 if [ "$PROJECT_EXISTS" = "false" ]; then
   cd /workspace
   mkdir -p gui
   cd gui
-  yes | npm create vite@latest . -- --template svelte >/dev/null 2>&1 || error "Failed to create Svelte project"
+  yes | npm create vite@latest . -- --template svelte >/dev/null 2>&1 || error "Failed to create Svelte .prototype"
   npm install >/dev/null 2>&1 || error "Failed to install Svelte dependencies"
   npm install -D terser >/dev/null 2>&1 || warn "Failed to install terser"
 else

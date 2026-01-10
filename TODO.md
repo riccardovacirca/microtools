@@ -144,10 +144,14 @@
   altre tabelle di servizio. la cartella project potrebbe essere rinominata in
   .prototype
 
+- La cartella di sviluppo di un microservizio potrebbe avere ul link simbolico
+  alla cartella lib
+
 - il comando mt git push potrebbe avere una opzione -m per il messaggio di commit
   se non specificato viene usato il messaggio di default
 
-- Verificare che il modulo /workspace/gui/src/mod_status della gui sia collegato
+- [OK]
+  Verificare che il modulo /workspace/gui/src/mod_status della gui sia collegato
   correttamente all'endpoint /api/status/info ed esponga graficamente il valore
   restituito da esso.
 

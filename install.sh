@@ -124,76 +124,76 @@ create_dev_container() {
 }
 
 # Reorganizes project structure
-# - Creates 'project/' directory
-# - Moves .git/, setup.sh, install.sh, install/ into project/
+# - Creates '.prototype/' directory
+# - Moves .git/, setup.sh, install.sh, install/ into .prototype/
 # - Creates symlinks for install/ and setup.sh in current directory
 set_project_structure() {
   info "Setting project structure..."
 
   # Skip if already reorganized
-  if [ -d "project" ] && [ -L "install" ] && [ -L "setup.sh" ]; then
+  if [ -d ".prototype" ] && [ -L "install" ] && [ -L "setup.sh" ]; then
     info "Project already reorganized"
     return 0
   fi
 
-  # Create project directory
-  mkdir -p project
+  # Create .prototype directory
+  mkdir -p .prototype
 
   # Move .git if exists
   if [ -d ".git" ]; then
-    info "Moving .git to project/"
-    mv .git project/ || warn "Failed to move .git"
+    info "Moving .git to .prototype/"
+    mv .git .prototype/ || warn "Failed to move .git"
   fi
 
   # Copy install.sh
   if [ -f "install.sh" ]; then
-    info "Copying install.sh to project/"
-    cp install.sh project/
+    info "Copying install.sh to .prototype/"
+    cp install.sh .prototype/
   fi
 
   # Move setup.sh
   if [ -f "setup.sh" ]; then
-    info "Moving setup.sh to project/"
-    cp setup.sh project/
+    info "Moving setup.sh to .prototype/"
+    cp setup.sh .prototype/
     rm -f setup.sh
   fi
 
   # Move install directory
   if [ -d "install" ]; then
-    info "Moving install/ to project/"
-    cp -r install project/
+    info "Moving install/ to .prototype/"
+    cp -r install .prototype/
     rm -rf install
   fi
 
   # Move release directory
   if [ -d "release" ]; then
-    info "Moving release/ to project/"
-    cp -r release project/
+    info "Moving release/ to .prototype/"
+    cp -r release .prototype/
     rm -rf release
   fi
 
   # Move Dockerfile
   if [ -f "Dockerfile" ]; then
-    info "Moving Dockerfile to project/"
-    mv Dockerfile project/
+    info "Moving Dockerfile to .prototype/"
+    mv Dockerfile .prototype/
   fi
 
   # Move PROJECT.md
   if [ -f "PROJECT.md" ]; then
-    info "Moving PROJECT.md to project/"
-    mv PROJECT.md project/
+    info "Moving PROJECT.md to .prototype/"
+    mv PROJECT.md .prototype/
   fi
 
   # Move TODO.md
   if [ -f "TODO.md" ]; then
-    info "Moving TODO.md to project/"
-    mv TODO.md project/
+    info "Moving TODO.md to .prototype/"
+    mv TODO.md .prototype/
   fi
 
   # Create symlinks
   info "Creating symbolic links..."
-  ln -sf project/install install || error "Failed to create install symlink"
-  ln -sf project/setup.sh setup.sh || error "Failed to create setup.sh symlink"
+  ln -sf .prototype/install install || error "Failed to create install symlink"
+  ln -sf .prototype/setup.sh setup.sh || error "Failed to create setup.sh symlink"
 
   info "Done."
 }

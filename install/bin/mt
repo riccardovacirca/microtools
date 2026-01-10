@@ -942,7 +942,7 @@ check_s6_service() {
 
 # Updates a git repository
 # Arguments:
-#   $1: Directory path (e.g., /workspace or /workspace/project)
+#   $1: Directory path (e.g., /workspace or /workspace/.prototype)
 #   $2: Repository name (e.g., hello or webapp)
 update_git_repo() {
   REPO_DIR="$1"
@@ -1057,11 +1057,11 @@ git_push() {
     info "/workspace is not a git repository, skipping"
   fi
 
-  # Update /workspace/project if it's a git repository
-  if [ -d "/workspace/project/.git" ]; then
-    update_git_repo "/workspace/project" "microtools"
+  # Update /workspace/.prototype if it's a git repository
+  if [ -d "/workspace/.prototype/.git" ]; then
+    update_git_repo "/workspace/.prototype" "microtools"
   else
-    info "/workspace/project is not a git repository, skipping"
+    info "/workspace/.prototype is not a git repository, skipping"
   fi
 
   info "Git push completed"
@@ -1087,11 +1087,11 @@ git_pull() {
     info "/workspace is not a git repository, skipping"
   fi
 
-  # Pull /workspace/project if it's a git repository
-  if [ -d "/workspace/project/.git" ]; then
-    pull_git_repo "/workspace/project" "microservice"
+  # Pull /workspace/.prototype if it's a git repository
+  if [ -d "/workspace/.prototype/.git" ]; then
+    pull_git_repo "/workspace/.prototype" "microservice"
   else
-    info "/workspace/project is not a git repository, skipping"
+    info "/workspace/.prototype is not a git repository, skipping"
   fi
 
   info "Git pull completed"
@@ -1118,12 +1118,12 @@ git_sync() {
     info "/workspace is not a git repository, skipping"
   fi
 
-  # Sync /workspace/project if it's a git repository
-  if [ -d "/workspace/project/.git" ]; then
-    pull_git_repo "/workspace/project" "microservice"
-    update_git_repo "/workspace/project" "microservice"
+  # Sync /workspace/.prototype if it's a git repository
+  if [ -d "/workspace/.prototype/.git" ]; then
+    pull_git_repo "/workspace/.prototype" "microservice"
+    update_git_repo "/workspace/.prototype" "microservice"
   else
-    info "/workspace/project is not a git repository, skipping"
+    info "/workspace/.prototype is not a git repository, skipping"
   fi
 
   info "Git sync completed"
