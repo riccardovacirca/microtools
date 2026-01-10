@@ -71,11 +71,28 @@ dello script sh bin/mt. Questo script può essere utilizzato per:
 
 # Struttura di un modulo
 
-Il modulo mod_status è un esempio di come i file e le cartelle di un modulo sono 
+Il modulo mod_status è un esempio di come i file e le cartelle di un modulo sono
 organizzate nel progetto.
 
 Il livello più alto è rappresentato dalla API Python che fornisce il routing e
 la validazione dell'input. I componenti database, gui, services sono opzionali.
+
+## Gestione dei moduli
+
+I moduli possono essere esportati e importati tramite archivi compressi:
+
+- `mt module export -n <nome_modulo>`: Esporta un modulo in un archivio tar.gz
+  contenente i componenti api, database, gui e service. L'archivio include un
+  file module.json con i metadati e le dipendenze Python del modulo. L'archivio
+  viene salvato in /workspace/dist/modules/.
+
+- `mt module import -n <nome_modulo> [--force]`: Importa un modulo da un archivio
+  tar.gz. Il comando blocca l'import se il modulo esiste già in /workspace/api,
+  a meno che non venga usata l'opzione --force. Al termine dell'import vengono
+  suggerite le operazioni di setup necessarie (installazione dipendenze Python,
+  build del microservizio C++, installazione schema database).
+
+## Organizzazione dei file
 
 /workspace/api/mod_status
 |-- /workspace/api/mod_status/__init__.py

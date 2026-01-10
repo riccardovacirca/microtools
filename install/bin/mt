@@ -67,10 +67,20 @@ Service Management:
   mt vite build|start|stop|restart|status
   
 Git Operations:
-  mt git push                  Push changes to git repositories (workspace and project)
-  mt git pull                  Pull changes from git repositories (workspace and project)
-  mt git sync                  Sync git repositories (pull, commit, push)
-  
+  mt git push                      Push changes to git repositories (workspace and project)
+  mt git pull                      Pull changes from git repositories (workspace and project)
+  mt git sync                      Sync git repositories (pull, commit, push)
+  mt git branch -b <name> [<repo>] Create/switch to branch and push to remote if needed
+                                   <repo>: empty=/workspace, 'microtools'=.prototype, or path
+  mt git merge -b <name> [<repo>]  Merge branch into main and delete from local/remote
+                                   <repo>: empty=/workspace, 'microtools'=.prototype, or path
+
+Module Management:
+  mt module export -n <name>       Export module to tar.gz archive in dist/modules/
+  mt module import -n <name> [--force]
+                                   Import module from tar.gz archive
+                                   Use --force to overwrite existing module
+
 Other:
   mt --help, -h                Show this help
 
@@ -1133,6 +1143,464 @@ git_sync() {
   info "Git sync completed"
 }
 
+# Creates or switches to a branch and pushes to remote if needed
+# Arguments:
+#   $1: Branch name
+#   $2: Repository name (optional: empty=workspace, 'microtools'=.prototype, or custom path)
+git_branch() {
+  BRANCH_NAME="$1"
+  REPO_SPEC="$2"
+  load_env
+
+  [ -z "$BRANCH_NAME" ] && error "Branch name is required. Use: mt git branch -b <branch-name> [<repo-name>]"
+
+  # Verify required environment variables
+  [ -z "$GIT_USER" ] && error "GIT_USER not set in .env file"
+  [ -z "$GIT_EMAIL" ] && error "GIT_EMAIL not set in .env file"
+  [ -z "$GIT_TOKEN" ] && error "GIT_TOKEN not set in .env file (GitHub Personal Access Token required)"
+
+  # Determine repository directory and name
+  if [ -z "$REPO_SPEC" ]; then
+    # Default: /workspace
+    REPO_DIR="/workspace"
+    REPO_NAME="${PROJECT_NAME}"
+  elif [ "$REPO_SPEC" = "microtools" ]; then
+    # microtools: /workspace/.prototype
+    REPO_DIR="/workspace/.prototype"
+    REPO_NAME="microtools"
+  else
+    # Custom path
+    REPO_DIR="$REPO_SPEC"
+    REPO_NAME=$(basename "$REPO_DIR")
+  fi
+
+  # Verify directory exists and is a git repo
+  if [ ! -d "$REPO_DIR" ]; then
+    error "Directory $REPO_DIR does not exist"
+  fi
+
+  if [ ! -d "$REPO_DIR/.git" ]; then
+    error "$REPO_DIR is not a git repository"
+  fi
+
+  info "Processing branch '$BRANCH_NAME' in $REPO_DIR..."
+
+  cd "$REPO_DIR"
+
+  # Configure git
+  git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
+  git config user.name "$GIT_USER"
+  git config user.email "$GIT_EMAIL"
+  git remote set-url origin "https://${GIT_USER}:${GIT_TOKEN}@github.com/riccardovacirca/${REPO_NAME}.git"
+
+  # Check if branch exists locally
+  if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+    info "  Branch '$BRANCH_NAME' exists locally, switching..."
+    git switch "$BRANCH_NAME" || { error "Failed to switch to branch in $REPO_DIR"; }
+  else
+    info "  Branch '$BRANCH_NAME' does not exist locally, creating..."
+    git switch -c "$BRANCH_NAME" || { error "Failed to create branch in $REPO_DIR"; }
+  fi
+
+  # Check if branch exists on remote
+  if ! git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+    info "  Branch '$BRANCH_NAME' does not exist on remote, pushing..."
+    if git push -u origin "$BRANCH_NAME" 2>/dev/null; then
+      success "Branch '$BRANCH_NAME' pushed to remote in $REPO_DIR"
+    else
+      warn "Failed to push branch to remote in $REPO_DIR"
+      cd /workspace
+      return 1
+    fi
+  else
+    info "  Branch '$BRANCH_NAME' already exists on remote"
+  fi
+
+  cd /workspace
+  success "Git branch operation completed for '$BRANCH_NAME' in $REPO_DIR"
+}
+
+# Merges a branch into main and deletes it from local and remote
+# Arguments:
+#   $1: Branch name
+#   $2: Repository name (optional: empty=workspace, 'microtools'=.prototype, or custom path)
+git_merge() {
+  BRANCH_NAME="$1"
+  REPO_SPEC="$2"
+  load_env
+
+  [ -z "$BRANCH_NAME" ] && error "Branch name is required. Use: mt git merge -b <branch-name> [<repo-name>]"
+
+  # Verify required environment variables
+  [ -z "$GIT_USER" ] && error "GIT_USER not set in .env file"
+  [ -z "$GIT_EMAIL" ] && error "GIT_EMAIL not set in .env file"
+  [ -z "$GIT_TOKEN" ] && error "GIT_TOKEN not set in .env file (GitHub Personal Access Token required)"
+
+  # Prevent merging main/master into themselves
+  if [ "$BRANCH_NAME" = "main" ] || [ "$BRANCH_NAME" = "master" ]; then
+    error "Cannot merge main/master branch into itself"
+  fi
+
+  # Determine repository directory and name
+  if [ -z "$REPO_SPEC" ]; then
+    # Default: /workspace
+    REPO_DIR="/workspace"
+    REPO_NAME="${PROJECT_NAME}"
+  elif [ "$REPO_SPEC" = "microtools" ]; then
+    # microtools: /workspace/.prototype
+    REPO_DIR="/workspace/.prototype"
+    REPO_NAME="microtools"
+  else
+    # Custom path
+    REPO_DIR="$REPO_SPEC"
+    REPO_NAME=$(basename "$REPO_DIR")
+  fi
+
+  # Verify directory exists and is a git repo
+  if [ ! -d "$REPO_DIR" ]; then
+    error "Directory $REPO_DIR does not exist"
+  fi
+
+  if [ ! -d "$REPO_DIR/.git" ]; then
+    error "$REPO_DIR is not a git repository"
+  fi
+
+  confirm "Merge branch '$BRANCH_NAME' into main and delete it from local and remote in $REPO_DIR?" || exit 0
+
+  info "Processing merge of '$BRANCH_NAME' in $REPO_DIR..."
+
+  cd "$REPO_DIR"
+
+  # Configure git
+  git config --global --add safe.directory "$REPO_DIR" 2>/dev/null || true
+  git config user.name "$GIT_USER"
+  git config user.email "$GIT_EMAIL"
+  git remote set-url origin "https://${GIT_USER}:${GIT_TOKEN}@github.com/riccardovacirca/${REPO_NAME}.git"
+
+  # Detect main branch name (main or master)
+  MAIN_BRANCH="main"
+  if git show-ref --verify --quiet "refs/heads/master"; then
+    if ! git show-ref --verify --quiet "refs/heads/main"; then
+      MAIN_BRANCH="master"
+    fi
+  fi
+
+  # Check if branch exists locally
+  if ! git show-ref --verify --quiet "refs/heads/$BRANCH_NAME"; then
+    error "Branch '$BRANCH_NAME' does not exist locally in $REPO_DIR"
+  fi
+
+  # Switch to main branch
+  info "  Switching to '$MAIN_BRANCH' branch..."
+  git switch "$MAIN_BRANCH" || { error "Failed to switch to $MAIN_BRANCH in $REPO_DIR"; }
+
+  # Merge the branch
+  info "  Merging '$BRANCH_NAME' into '$MAIN_BRANCH'..."
+  if git merge "$BRANCH_NAME" --no-edit 2>/dev/null; then
+    success "Branch '$BRANCH_NAME' merged successfully in $REPO_DIR"
+  else
+    error "Merge failed in $REPO_DIR. Resolve conflicts manually."
+  fi
+
+  # Delete branch locally
+  info "  Deleting local branch '$BRANCH_NAME'..."
+  if git branch -d "$BRANCH_NAME" 2>/dev/null; then
+    info "  Local branch '$BRANCH_NAME' deleted"
+  else
+    warn "Failed to delete local branch '$BRANCH_NAME' (use -D to force delete if needed)"
+  fi
+
+  # Delete branch from remote if it exists
+  if git ls-remote --exit-code --heads origin "$BRANCH_NAME" >/dev/null 2>&1; then
+    info "  Deleting remote branch '$BRANCH_NAME'..."
+    if git push origin --delete "$BRANCH_NAME" 2>/dev/null; then
+      success "Remote branch '$BRANCH_NAME' deleted from $REPO_DIR"
+    else
+      warn "Failed to delete remote branch '$BRANCH_NAME' from $REPO_DIR"
+    fi
+  else
+    info "  Branch '$BRANCH_NAME' does not exist on remote"
+  fi
+
+  cd /workspace
+
+  info "Git merge operation completed for '$BRANCH_NAME' in $REPO_DIR"
+  info "Note: Changes have been merged locally but not pushed to remote"
+  info "Use 'mt git push' to push the merged changes to remote"
+}
+
+# Exports a module to a tar.gz archive
+# Arguments:
+#   $1: Module name
+module_export() {
+  MODULE_NAME="$1"
+
+  [ -z "$MODULE_NAME" ] && error "Module name is required. Use: mt module export -n <module-name>"
+
+  # Check if API module exists (required)
+  API_DIR="/workspace/api/$MODULE_NAME"
+  if [ ! -d "$API_DIR" ]; then
+    error "Module '$MODULE_NAME' not found. API directory is required: $API_DIR"
+  fi
+
+  info "Exporting module '$MODULE_NAME'..."
+
+  # Create dist directory structure
+  DIST_DIR="/workspace/dist/modules"
+  MODULE_DIST_DIR="$DIST_DIR/$MODULE_NAME"
+  mkdir -p "$MODULE_DIST_DIR"
+
+  # Clean previous export if exists
+  rm -rf "$MODULE_DIST_DIR"/*
+
+  # Export API (required)
+  info "  Exporting API..."
+  cp -r "$API_DIR" "$MODULE_DIST_DIR/api"
+
+  # Check and export optional components
+  HAS_DATABASE=false
+  HAS_GUI=false
+  HAS_SERVICE=false
+
+  # Export Database (optional)
+  DB_DIR="/workspace/database/$MODULE_NAME"
+  if [ -d "$DB_DIR" ]; then
+    info "  Exporting Database..."
+    cp -r "$DB_DIR" "$MODULE_DIST_DIR/database"
+    HAS_DATABASE=true
+  else
+    info "  Database not found, skipping"
+  fi
+
+  # Export GUI (optional)
+  GUI_DIR="/workspace/gui/src/$MODULE_NAME"
+  if [ -d "$GUI_DIR" ]; then
+    info "  Exporting GUI..."
+    cp -r "$GUI_DIR" "$MODULE_DIST_DIR/gui"
+    HAS_GUI=true
+  else
+    info "  GUI not found, skipping"
+  fi
+
+  # Export Service (optional)
+  SERVICE_DIR="/workspace/services/$MODULE_NAME"
+  if [ -d "$SERVICE_DIR" ]; then
+    info "  Exporting Service..."
+    mkdir -p "$MODULE_DIST_DIR/service"
+
+    # Copy source files, exclude build artifacts
+    if [ -d "$SERVICE_DIR/src" ]; then
+      cp -r "$SERVICE_DIR/src" "$MODULE_DIST_DIR/service/"
+    fi
+
+    # Copy configuration files
+    [ -f "$SERVICE_DIR/CMakeLists.txt" ] && cp "$SERVICE_DIR/CMakeLists.txt" "$MODULE_DIST_DIR/service/"
+    [ -f "$SERVICE_DIR/.env.example" ] && cp "$SERVICE_DIR/.env.example" "$MODULE_DIST_DIR/service/"
+
+    HAS_SERVICE=true
+  else
+    info "  Service not found, skipping"
+  fi
+
+  # Create module.json with metadata
+  info "  Creating module.json..."
+
+  # Extract Python dependencies from API
+  PYTHON_DEPS="[]"
+  if [ -f "$API_DIR/requirements.txt" ]; then
+    # Convert requirements.txt to JSON array
+    PYTHON_DEPS=$(cat "$API_DIR/requirements.txt" | grep -v "^#" | grep -v "^$" | awk '{printf "\"%s\",", $1}' | sed 's/,$//')
+    PYTHON_DEPS="[$PYTHON_DEPS]"
+  fi
+
+  # Create README from workflow.md if exists
+  if [ -f "$API_DIR/workflow.md" ]; then
+    info "  Copying workflow.md as README.md..."
+    cp "$API_DIR/workflow.md" "$MODULE_DIST_DIR/README.md"
+  fi
+
+  # Generate module.json
+  cat > "$MODULE_DIST_DIR/module.json" <<EOF
+{
+  "name": "$MODULE_NAME",
+  "version": "1.0.0",
+  "description": "Module $MODULE_NAME",
+  "author": "Generated by Microtools",
+  "exported_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "dependencies": {
+    "python": $PYTHON_DEPS,
+    "system": []
+  },
+  "components": {
+    "api": true,
+    "database": $HAS_DATABASE,
+    "gui": $HAS_GUI,
+    "service": $HAS_SERVICE
+  }
+}
+EOF
+
+  # Create tar.gz archive
+  info "  Creating archive..."
+  cd "$DIST_DIR"
+  tar -czf "${MODULE_NAME}.tar.gz" "$MODULE_NAME" || error "Failed to create archive"
+  cd /workspace
+
+  # Cleanup temporary directory
+  rm -rf "$MODULE_DIST_DIR"
+
+  ARCHIVE_SIZE=$(du -h "$DIST_DIR/${MODULE_NAME}.tar.gz" | cut -f1)
+  success "Module '$MODULE_NAME' exported successfully"
+  info "Archive: $DIST_DIR/${MODULE_NAME}.tar.gz ($ARCHIVE_SIZE)"
+}
+
+# Imports a module from a tar.gz archive
+# Arguments:
+#   $1: Module archive name (e.g., mod_status.tar.gz)
+#   $2: Force flag (--force)
+module_import() {
+  ARCHIVE_NAME="$1"
+  FORCE_FLAG="$2"
+
+  [ -z "$ARCHIVE_NAME" ] && error "Archive name is required. Use: mt module import -n <module-name>.tar.gz [--force]"
+
+  # Ensure .tar.gz extension
+  if [ "${ARCHIVE_NAME%.tar.gz}" = "$ARCHIVE_NAME" ]; then
+    ARCHIVE_NAME="${ARCHIVE_NAME}.tar.gz"
+  fi
+
+  DIST_DIR="/workspace/dist/modules"
+  ARCHIVE_PATH="$DIST_DIR/$ARCHIVE_NAME"
+
+  # Check if archive exists
+  if [ ! -f "$ARCHIVE_PATH" ]; then
+    error "Archive not found: $ARCHIVE_PATH"
+  fi
+
+  info "Importing module from $ARCHIVE_NAME..."
+
+  # Extract module name from archive
+  MODULE_NAME="${ARCHIVE_NAME%.tar.gz}"
+
+  # Check if module already exists
+  API_DIR="/workspace/api/$MODULE_NAME"
+  if [ -d "$API_DIR" ]; then
+    if [ "$FORCE_FLAG" != "--force" ]; then
+      error "Module '$MODULE_NAME' already exists in $API_DIR. Use --force to overwrite."
+    else
+      warn "Module '$MODULE_NAME' exists. Overwriting due to --force flag..."
+    fi
+  fi
+
+  # Extract archive to temporary location
+  TMP_EXTRACT="/tmp/module_import_$$"
+  mkdir -p "$TMP_EXTRACT"
+
+  info "  Extracting archive..."
+  tar -xzf "$ARCHIVE_PATH" -C "$TMP_EXTRACT" || error "Failed to extract archive"
+
+  MODULE_EXTRACT_DIR="$TMP_EXTRACT/$MODULE_NAME"
+
+  # Verify module.json exists
+  if [ ! -f "$MODULE_EXTRACT_DIR/module.json" ]; then
+    rm -rf "$TMP_EXTRACT"
+    error "Invalid module archive: module.json not found"
+  fi
+
+  # Read module.json
+  info "  Reading module metadata..."
+  MODULE_JSON=$(cat "$MODULE_EXTRACT_DIR/module.json")
+
+  # Import API (required)
+  if [ -d "$MODULE_EXTRACT_DIR/api" ]; then
+    info "  Importing API..."
+    [ -d "$API_DIR" ] && rm -rf "$API_DIR"
+    cp -r "$MODULE_EXTRACT_DIR/api" "$API_DIR"
+  else
+    rm -rf "$TMP_EXTRACT"
+    error "Invalid module archive: API directory not found"
+  fi
+
+  # Import Database (if exists)
+  if [ -d "$MODULE_EXTRACT_DIR/database" ]; then
+    info "  Importing Database..."
+    DB_DIR="/workspace/database/$MODULE_NAME"
+    [ -d "$DB_DIR" ] && rm -rf "$DB_DIR"
+    cp -r "$MODULE_EXTRACT_DIR/database" "$DB_DIR"
+  fi
+
+  # Import GUI (if exists)
+  if [ -d "$MODULE_EXTRACT_DIR/gui" ]; then
+    info "  Importing GUI..."
+    GUI_DIR="/workspace/gui/src/$MODULE_NAME"
+    [ -d "$GUI_DIR" ] && rm -rf "$GUI_DIR"
+    cp -r "$MODULE_EXTRACT_DIR/gui" "$GUI_DIR"
+  fi
+
+  # Import Service (if exists)
+  if [ -d "$MODULE_EXTRACT_DIR/service" ]; then
+    info "  Importing Service..."
+    SERVICE_DIR="/workspace/services/$MODULE_NAME"
+    [ -d "$SERVICE_DIR" ] && rm -rf "$SERVICE_DIR"
+    mkdir -p "$SERVICE_DIR"
+    cp -r "$MODULE_EXTRACT_DIR/service/"* "$SERVICE_DIR/"
+  fi
+
+  # Cleanup
+  rm -rf "$TMP_EXTRACT"
+
+  success "Module '$MODULE_NAME' imported successfully"
+
+  # Suggest post-import operations
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo "                         POST-IMPORT SETUP"
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+
+  # Check for Python dependencies
+  PYTHON_DEPS=$(echo "$MODULE_JSON" | grep -o '"python":\s*\[[^]]*\]' | sed 's/"python":\s*\[//;s/\]//' | sed 's/"//g')
+  if [ -n "$PYTHON_DEPS" ] && [ "$PYTHON_DEPS" != " " ]; then
+    echo "Python dependencies detected:"
+    echo "$PYTHON_DEPS" | tr ',' '\n' | sed 's/^/  - /'
+    echo ""
+    echo "To install Python dependencies, run:"
+    echo "  pip install $PYTHON_DEPS"
+    echo ""
+  fi
+
+  # Check if service needs building
+  if [ -d "/workspace/services/$MODULE_NAME" ]; then
+    echo "C++ microservice detected:"
+    echo "  To build the service, run:"
+    echo "    mt service build -n $MODULE_NAME"
+    echo "  To enable and start the service, run:"
+    echo "    mt service enable -n $MODULE_NAME"
+    echo ""
+  fi
+
+  # Check if database scripts exist
+  if [ -d "/workspace/database/$MODULE_NAME" ]; then
+    echo "Database scripts detected:"
+    echo "  To install database schema, run:"
+    echo "    mt db -f /workspace/database/$MODULE_NAME/<db_type>_install.sql"
+    echo "  (Replace <db_type> with: sqlite3, mariadb, or postgres)"
+    echo ""
+  fi
+
+  # Check if GUI needs rebuilding
+  if [ -d "/workspace/gui/src/$MODULE_NAME" ]; then
+    echo "GUI components detected:"
+    echo "  You may need to update /workspace/gui/src/Layout.svelte to include the new module"
+    echo "  To rebuild the GUI, run:"
+    echo "    mt vite build"
+    echo ""
+  fi
+
+  echo "═══════════════════════════════════════════════════════════════════════════"
+  echo ""
+}
+
 # Gunicorn management functions (wrappers to standalone scripts)
 gunicorn_start() {
   s6_service_start "gunicorn"
@@ -1725,6 +2193,62 @@ case "$COMMAND" in
     service_list
     ;;
 
+  module)
+    # Parse module subcommand
+    [ $# -eq 0 ] && error "Module action required. Use 'mt --help' for usage information"
+
+    MODULE_ACTION="$1"
+    shift
+
+    # Execute module action
+    case "$MODULE_ACTION" in
+      export)
+        # Parse export options
+        MODULE_NAME=""
+        while [ $# -gt 0 ]; do
+          case $1 in
+            -n)
+              shift
+              [ -z "$1" ] && error "Option -n requires a module name"
+              MODULE_NAME="$1"
+              shift
+              ;;
+            *)
+              error "Unknown option for 'module export': $1. Use: mt module export -n <module-name>"
+              ;;
+          esac
+        done
+        module_export "$MODULE_NAME"
+        ;;
+      import)
+        # Parse import options
+        IMPORT_NAME=""
+        IMPORT_FORCE=""
+        while [ $# -gt 0 ]; do
+          case $1 in
+            -n)
+              shift
+              [ -z "$1" ] && error "Option -n requires an archive name"
+              IMPORT_NAME="$1"
+              shift
+              ;;
+            --force)
+              IMPORT_FORCE="--force"
+              shift
+              ;;
+            *)
+              error "Unknown option for 'module import': $1. Use: mt module import -n <archive-name> [--force]"
+              ;;
+          esac
+        done
+        module_import "$IMPORT_NAME" "$IMPORT_FORCE"
+        ;;
+      *)
+        error "Unknown module action: $MODULE_ACTION. Valid actions: export, import"
+        ;;
+    esac
+    ;;
+
   git)
     # Parse git subcommand
     [ $# -eq 0 ] && error "Git action required. Use 'mt --help' for usage information"
@@ -1743,8 +2267,58 @@ case "$COMMAND" in
       sync)
         git_sync
         ;;
+      branch)
+        # Parse branch options
+        BRANCH_NAME=""
+        REPO_NAME=""
+        while [ $# -gt 0 ]; do
+          case $1 in
+            -b)
+              shift
+              [ -z "$1" ] && error "Option -b requires a branch name"
+              BRANCH_NAME="$1"
+              shift
+              ;;
+            *)
+              # First unknown argument is the repo name
+              if [ -z "$REPO_NAME" ]; then
+                REPO_NAME="$1"
+                shift
+              else
+                error "Unknown option for 'git branch': $1. Use: mt git branch -b <branch-name> [<repo-name>]"
+              fi
+              ;;
+          esac
+        done
+        git_branch "$BRANCH_NAME" "$REPO_NAME"
+        ;;
+      merge)
+        # Parse merge options
+        MERGE_BRANCH=""
+        MERGE_REPO=""
+        while [ $# -gt 0 ]; do
+          case $1 in
+            -b)
+              shift
+              [ -z "$1" ] && error "Option -b requires a branch name"
+              MERGE_BRANCH="$1"
+              shift
+              ;;
+            *)
+              # First unknown argument is the repo name
+              if [ -z "$MERGE_REPO" ]; then
+                MERGE_REPO="$1"
+                shift
+              else
+                error "Unknown option for 'git merge': $1. Use: mt git merge -b <branch-name> [<repo-name>]"
+              fi
+              ;;
+          esac
+        done
+        git_merge "$MERGE_BRANCH" "$MERGE_REPO"
+        ;;
       *)
-        error "Unknown git action: $GIT_ACTION. Valid actions: push, pull, sync"
+        error "Unknown git action: $GIT_ACTION. Valid actions: push, pull, sync, branch, merge"
         ;;
     esac
     ;;
