@@ -49,11 +49,11 @@ Un progetto applicativo basato su Microtools ha la seguente struttura:
 
 A questi si aggiungono:
 
-- project: Cartella relativa al progetto originale git
+- .prototype: Cartella relativa al progetto originale git
 - install: Link simbolico alla cartella di installazione del framework
 - install.sh e setup.sh: Link simbolici agli script di installazione del framework
 
-La root del progetto e la cartella project hanno un repository .git individuale
+La root del progetto e la cartella .prototype hanno un repository .git individuale
 per gestire gli aggiornamenti a livello del framework (che vengono condivisi tra
 tutte le installazioni) e gli aggiornamenti a livello della singola istanza del
 progetto.

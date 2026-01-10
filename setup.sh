@@ -544,7 +544,7 @@ if [ -d /workspace/install/gui ]; then
   cp /workspace/install/gui/index.html src/index.html 2>/dev/null || true
 
   # Copy store.js to gui root (not src/)
-  cp /workspace/install/gui/store.js store.js 2>/dev/null || true
+  cp /workspace/install/gui/store.js src/store.js 2>/dev/null || true
 
   # Copy vite.config.js
   cp /workspace/install/gui/vite.config.js vite.config.js 2>/dev/null || true

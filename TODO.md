@@ -7,13 +7,9 @@
   alla cartella /workspace/conf. verificare dove la configurazione viene creata
   nello script di setup per aggiungere questo link.
 
-- La prima operazione dell'installer potrebbe essere la copia della intera
-  cartella. Nella cartella project invece della copia dei singoli file
-  cartelle.
-
 - [OK]
   Verificare che mod_status sia conforme al dsl
-  /workspace/project/install/docs/dsl/python_models.json.
+  /workspace/.prototype/install/docs/dsl/python_models.json.
 
 - [OK]
   Il setup dovrebbe installare gunicorn accanto a uvicorn e configurarli su
@@ -77,7 +73,7 @@
 - [OK]
   modificare il microservizio c++ mod_status in modo che verifichi l'esistenza
   di una chiave app_status su redis corrispondente al recod sql inserito
-  mediante /workspace/project/install/database/mod_status/sqlite3/data.sql.
+  mediante /workspace/.prototype/install/database/mod_status/sqlite3/data.sql.
   se la chiave esiste legge il valore e restituisce il dato opportunamente
   serializzato in json al client altrimenti apre una connessione con il db,
   legge il record dal database, genera la chiave app_status con il record letto
@@ -103,17 +99,17 @@
   Lo script setup.sh a partire dalla riga 237 provvede ad installare i servizi
   gestiti da s6. Verificare se:
   > Uvicorn è denominato api
-  > Gunicorn è completamente gestito mediante il contenuto di /workspace/project/install/s6/gunicorn
-  > I servizi attualmente gestiti corrispondono a quelli definiti in /workspace/project/install/s6
-  > Per tutti i servizi definiti in /workspace/project/install/s6 è assicurata
+  > Gunicorn è completamente gestito mediante il contenuto di /workspace/.prototype/install/s6/gunicorn
+  > I servizi attualmente gestiti corrispondono a quelli definiti in /workspace/.prototype/install/s6
+  > Per tutti i servizi definiti in /workspace/.prototype/install/s6 è assicurata
     la persistenza al riavvio del container
-  > gli script /workspace/project/install/api/start.sh e /workspace/project/install/api/stop.sh
+  > gli script /workspace/.prototype/install/api/start.sh e /workspace/.prototype/install/api/stop.sh
     non sono più necessari nella attuale gestione dei servizi
 
 - [OK]
   Rimuovere gli script obsoleti:
-  > /workspace/project/install/api/start.sh
-  > /workspace/project/install/api/stop.sh
+  > /workspace/.prototype/install/api/start.sh
+  > /workspace/.prototype/install/api/stop.sh
   Nella gestione s6 rinominare api in uvicorn in modo  
   che ci sia corrispondenza tra il nome e il servizio effettivamente gestito
 
@@ -128,9 +124,9 @@
   Il setup di claude con setup.sh deve copiare la cartella .claude in /workspace
 
 - [OK]
-  Verificare se nella gui mod_status dipende da /workspace/project/install/gui/mod_home
+  Verificare se nella gui mod_status dipende da /workspace/.prototype/install/gui/mod_home
   Se non esiste nessuna dipendenza rimuovere mod_home e includere mod_status
-  in /workspace/project/install/gui/Layout.svelte al suo posto
+  in /workspace/.prototype/install/gui/Layout.svelte al suo posto
 
 - rendere minimalista l'output del comando wa
 
@@ -140,13 +136,6 @@
 - [OK]
   rinominare il comando wa in mt
 
-- le cartelle project e install potrebbero essere prefissate con un . come le
-  altre tabelle di servizio. la cartella project potrebbe essere rinominata in
-  .prototype
-
-- La cartella di sviluppo di un microservizio potrebbe avere ul link simbolico
-  alla cartella lib
-
 - il comando mt git push potrebbe avere una opzione -m per il messaggio di commit
   se non specificato viene usato il messaggio di default
 
@@ -154,8 +143,3 @@
   Verificare che il modulo /workspace/gui/src/mod_status della gui sia collegato
   correttamente all'endpoint /api/status/info ed esponga graficamente il valore
   restituito da esso.
-
-- [BUG]
-  Query SQL non eseguite durante il setup
-  Microservice C++ non compilato, abilitato e avviato durante il setup
-  Microservice C++ automaticamente abilitato e avviato con mt service build

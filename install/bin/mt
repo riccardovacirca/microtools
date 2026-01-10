@@ -552,9 +552,13 @@ vite_build() {
 vite_start() {
   GUI_DIR="/workspace/gui"
   PID_FILE="/tmp/vite.pid"
-
+  
   [ ! -d "$GUI_DIR" ] && error "GUI directory not found: $GUI_DIR"
-
+  
+  # Clear cache
+  info "Clear vite cache..."
+  rm -rf $GUI_DIR/node_modules/.vite
+  
   # Check if already running
   if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
