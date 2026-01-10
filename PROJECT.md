@@ -69,3 +69,57 @@ dello script sh bin/mt. Questo script può essere utilizzato per:
 - Installazione di un modulo SQL di database
 - Sincronizzazione dei repository git della webapp e del framework
 
+# Struttura di un modulo
+
+Il modulo mod_status è un esempio di come i file e le cartelle di un modulo sono 
+organizzate nel progetto.
+
+Il livello più alto è rappresentato dalla API Python che fornisce il routing e
+la validazione dell'input. I componenti database, gui, services sono opzionali.
+
+/workspace/api/mod_status
+|-- /workspace/api/mod_status/__init__.py
+|-- /workspace/api/mod_status/adapters
+|   |-- /workspace/api/mod_status/adapters/__init__.py
+|   `-- /workspace/api/mod_status/adapters/cpp_adapter.py
+|-- /workspace/api/mod_status/models
+|   |-- /workspace/api/mod_status/models/__init__.py
+|   `-- /workspace/api/mod_status/models/response_models.py
+|-- /workspace/api/mod_status/repositories
+|   `-- /workspace/api/mod_status/repositories/__init__.py
+|-- /workspace/api/mod_status/routes.py
+|-- /workspace/api/mod_status/services
+|   |-- /workspace/api/mod_status/services/__init__.py
+|   `-- /workspace/api/mod_status/services/status_service.py
+`-- /workspace/api/mod_status/workflow.md
+
+/workspace/database/mod_status
+|-- /workspace/database/mod_status/mariadb
+|   |-- /workspace/database/mod_status/mariadb/data.sql
+|   |-- /workspace/database/mod_status/mariadb/schema_install.sql
+|   `-- /workspace/database/mod_status/mariadb/schema_uninstall.sql
+|-- /workspace/database/mod_status/mariadb_install.sql
+|-- /workspace/database/mod_status/mariadb_uninstall.sql
+|-- /workspace/database/mod_status/postgres
+|   |-- /workspace/database/mod_status/postgres/data.sql
+|   |-- /workspace/database/mod_status/postgres/schema_install.sql
+|   `-- /workspace/database/mod_status/postgres/schema_uninstall.sql
+|-- /workspace/database/mod_status/postgres_install.sql
+|-- /workspace/database/mod_status/postgres_uninstall.sql
+|-- /workspace/database/mod_status/sqlite3
+|   |-- /workspace/database/mod_status/sqlite3/data.sql
+|   |-- /workspace/database/mod_status/sqlite3/schema_install.sql
+|   `-- /workspace/database/mod_status/sqlite3/schema_uninstall.sql
+|-- /workspace/database/mod_status/sqlite3_install.sql
+`-- /workspace/database/mod_status/sqlite3_uninstall.sql
+
+/workspace/gui/src/mod_status
+|-- /workspace/gui/src/mod_status/Info.svelte
+|-- /workspace/gui/src/mod_status/Layout.svelte
+`-- /workspace/gui/src/mod_status/index.html
+
+/workspace/services/mod_status
+|-- /workspace/services/mod_status/.env.example
+|-- /workspace/services/mod_status/CMakeLists.txt
+`-- /workspace/services/mod_status/src
+    `-- /workspace/services/mod_status/src/main.cpp
