@@ -1,3 +1,3 @@
-from .response_models import HealthResponse, VersionResponse
+from .info_models import InfoResponse
 
-__all__ = ["HealthResponse", "VersionResponse"]
+__all__ = ["InfoResponse"]

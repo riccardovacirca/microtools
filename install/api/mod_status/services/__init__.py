@@ -1,3 +1,3 @@
-from . import status_service
+from . import info_service
 
-__all__ = ["status_service"]
+__all__ = ["info_service"]

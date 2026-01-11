@@ -1,3 +1,3 @@
-from . import cpp_adapter
+from . import info_adapter
 
-__all__ = ["cpp_adapter"]
+__all__ = ["info_adapter"]

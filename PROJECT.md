@@ -79,23 +79,34 @@ la validazione dell'input. I componenti Database, GUI e Services sono opzionali.
 
 L'entità API di un modulo ha la seguente struttura. La logica è definita nei
 services. routes.py, repositories, adapters e models sono di supporto ai
-services. Per questo motivo i nomi di queste ultime entità fanno riferimento a
-qualcuno dei services definiti. Se richiesto il proxy verso un microservizio C++
-questo avviene attraverso un service e mediante un adapter.
+services.
+
+Naming: I nomi di services, models, repositories e adapters devono riflettere
+la funzione specifica svolta, non il nome del modulo. Usare il pattern
+<FUNCTION_NAME>_<entity_type>.py dove FUNCTION_NAME descrive la funzionalità
+implementata (es. info, alert, report). Questo permette di distinguere le
+entità quando un modulo implementa più funzionalità. L'adapter ha il nome della
+funzione e si connette internamente al microservizio C++ che mantiene il nome
+del modulo.
+
+Esempio: Nel modulo mod_status, il service che recupera info applicazione si
+chiama info_service.py (non status_service.py), con info_models.py,
+info_adapter.py, ecc. L'adapter info_adapter.py si connette al microservizio
+mod_status.
 
 ```
 /workspace/api/mod_<MODULE_NAME>/
 |-- adapters/
-|   |-- <CPP_MICROSERVICE_NAME>_adapter.py
+|   |-- <FUNCTION_NAME>_adapter.py
 |   '-- ...
 |-- models/
-|   |-- <SERVICE_NAME>_models.py
+|   |-- <FUNCTION_NAME>_models.py
 |   '-- ...
 |-- repositories/
-|   |-- <SERVICE_NAME>_repository.py
+|   |-- <FUNCTION_NAME>_repository.py
 |   '-- ...
 |-- services/
-|   |-- <SERVICE_NAME>_service.py
+|   |-- <FUNCTION_NAME>_service.py
 |   '-- ...
 |-- routes.py
 `-- workflow.md

@@ -5,19 +5,21 @@ and translates responses into Python dictionaries.
 """
 import os
 import httpx
+from typing import Dict, Any
+from pydantic import validate_arguments
 
-# Microservice configuration (C++ services on 9000+ ports)
 MOD_STATUS_HOST = os.getenv("MOD_STATUS_HOST", "127.0.0.1")
 MOD_STATUS_PORT = os.getenv("MOD_STATUS_PORT", "9001")
 MOD_STATUS_URL = f"http://{MOD_STATUS_HOST}:{MOD_STATUS_PORT}"
 
 
-async def get_runtime_info() -> dict:
+@validate_arguments
+async def get_runtime_info() -> Dict[str, Any]:
     """Fetches runtime information from mod_status C++ microservice.
-    
+
     Returns:
-        dict: Runtime information including version, uptime, and configuration
-        
+        Dict[str, Any]: Runtime information including version, uptime, and configuration
+
     Raises:
         httpx.HTTPError: If the C++ service is unreachable or returns an error
     """
