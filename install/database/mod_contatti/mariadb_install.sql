@@ -1,0 +1,2 @@
+-- @require mod_contatti/mariadb/schema_install.sql
+-- @require mod_contatti/mariadb/data.sql

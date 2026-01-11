@@ -1,0 +1,1 @@
+-- @require mod_contatti/postgres/schema_uninstall.sql

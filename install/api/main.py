@@ -7,6 +7,7 @@ import os
 
 # Import module routers
 from mod_status.routes import router as status_router
+from mod_contatti.routes import router as contatti_router
 
 app = FastAPI(
     title=os.getenv("PROJECT_NAME", "microservice"),
@@ -25,3 +26,4 @@ app.add_middleware(
 
 # Register module routers
 app.include_router(status_router, prefix="/api/status", tags=["status"])
+app.include_router(contatti_router)

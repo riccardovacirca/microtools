@@ -1,13 +1,5 @@
 <script>
-  import Info from "./Info.svelte";
-
-  let activeTab = "project";
-
-  const tabs = [{ id: "project", label: "Project Information" }];
-
-  function selectTab(tabId) {
-    activeTab = tabId;
-  }
+  import InfoComponent from "./InfoComponent.svelte";
 </script>
 
 <div class="status-container">
@@ -15,7 +7,7 @@
     <p>Project information</p>
   </header>
   <main class="tab-content">
-    <Info />
+    <InfoComponent />
   </main>
 </div>
 

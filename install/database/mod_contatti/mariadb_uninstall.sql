@@ -1,0 +1,1 @@
+-- @require mod_contatti/mariadb/schema_uninstall.sql

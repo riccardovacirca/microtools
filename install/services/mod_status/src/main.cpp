@@ -67,26 +67,11 @@ int main(int argc, char* argv[]) {
   signal(SIGINT, signal_handler);
   signal(SIGTERM, signal_handler);
   mt::Env env;
-  std::string host = "127.0.0.1";
-  int port = 9001;
-  std::string redis_host = "127.0.0.1";
-  int redis_port = 6379;
-  if (env.has("MOD_STATUS_HOST")) {
-    host = std::get<std::string>(env.get("MOD_STATUS_HOST"));
-  }
-  if (env.has("MOD_STATUS_PORT")) {
-    port = std::stoi(std::get<std::string>(env.get("MOD_STATUS_PORT")));
-  }
-  if (env.has("REDIS_HOST")) {
-    redis_host = std::get<std::string>(env.get("REDIS_HOST"));
-  }
-  if (env.has("REDIS_PORT")) {
-    redis_port = std::stoi(std::get<std::string>(env.get("REDIS_PORT")));
-  }
-  db_dsn = "DSN=hola_sqlite";
-  if (env.has("DB_DSN")) {
-    db_dsn = std::get<std::string>(env.get("DB_DSN"));
-  }
+  std::string host = std::get<std::string>(env.get("MICROSERVICE_MOD_STATUS_HOST"));
+  int port = std::stoi(std::get<std::string>(env.get("MICROSERVICE_MOD_STATUS_PORT")));
+  std::string redis_host = std::get<std::string>(env.get("REDIS_HOST"));
+  int redis_port = std::stoi(std::get<std::string>(env.get("REDIS_PORT")));
+  db_dsn = std::get<std::string>(env.get("DB_DSN"));
   try {
     redis_conn = std::make_unique<mt::Redis>(redis_host, redis_port);
     redis_conn->connect();

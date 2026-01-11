@@ -720,29 +720,204 @@ Da documentare...
 
 ### GUI
 
-```
-/workspace/gui/src/mod_status
-|-- /workspace/gui/src/mod_status/Info.svelte
-|-- /workspace/gui/src/mod_status/Layout.svelte
-`-- /workspace/gui/src/mod_status/index.html
+La GUI è basata su Svelte e organizzata in una gerarchia di layout e componenti.
 
-/workspace/services/mod_status
-|-- /workspace/services/mod_status/.env.example
-|-- /workspace/services/mod_status/CMakeLists.txt
-`-- /workspace/services/mod_status/src
-    `-- /workspace/services/mod_status/src/main.cpp
+Architettura: La GUI si basa su layout gerarchici. Esiste un layout di livello
+applicazione che gestisce le sezioni da visualizzare in base allo stato globale
+(autenticazione, autorizzazioni, navigazione). Ogni modulo definisce il proprio
+layout che gestisce aree interne basate sullo stato del modulo. I layout non
+hanno logica applicativa se non quella minima necessaria a decidere quale area
+visualizzare tramite if/else di Svelte. I layout ospitano layout di livello
+inferiore o componenti. I componenti Svelte contengono la logica applicativa
+effettiva della GUI.
+
+Gerarchia:
+1. Layout applicazione (/workspace/gui/src/Layout.svelte): Gestisce lo stato
+   globale e decide quali moduli/sezioni visualizzare
+2. Layout modulo (/workspace/gui/src/mod_<name>/Layout.svelte): Gestisce lo
+   stato del modulo e decide quali aree/componenti visualizzare
+3. Layout specializzati (opzionali): Se la complessità lo richiede, layout
+   intermedi per organizzare componenti
+4. Componenti (.svelte): Contengono la logica applicativa, gestiscono stato
+   locale, chiamate API, interazioni utente
+
+Flessibilità: Un layout può visualizzare tutte le aree a prescindere dallo
+stato se la logica applicativa lo richiede. La struttura a layout non è rigida
+ma serve a organizzare la complessità.
+
+```
+/workspace/gui/src/
+|-- Layout.svelte                    (layout applicazione)
+|-- mod_status/
+|   |-- Layout.svelte                (layout modulo)
+|   |-- InfoComponent.svelte         (componente)
+|   `-- index.html
+```
+
+DSL GUI:
+
+```json
+{
+  "dsl_name": "microtools_svelte_gui",
+  "version": "1.0",
+  "description": "DSL per l'organizzazione della GUI basata su Svelte con layout gerarchici",
+
+  "structure": {
+    "application_layout": {
+      "location": "/workspace/gui/src/Layout.svelte",
+      "required": true,
+      "responsibility": "Gestisce stato globale (autenticazione, autorizzazioni, navigazione)",
+      "contains": "Layout di modulo o componenti di livello applicazione",
+      "logic": "Minima, solo per decidere quali moduli/sezioni visualizzare"
+    },
+    "module_layout": {
+      "location": "/workspace/gui/src/mod_<MODULE_NAME>/Layout.svelte",
+      "required": true,
+      "responsibility": "Gestisce stato del modulo e decide quali aree visualizzare",
+      "contains": "Layout specializzati o componenti del modulo",
+      "logic": "Minima, solo per decidere quali componenti visualizzare"
+    },
+    "specialized_layout": {
+      "location": "/workspace/gui/src/mod_<MODULE_NAME>/<Area>Layout.svelte",
+      "required": false,
+      "when": "Complessità richiede ulteriore organizzazione",
+      "responsibility": "Organizza componenti di una specifica area complessa",
+      "contains": "Componenti"
+    },
+    "components": {
+      "location": "/workspace/gui/src/mod_<MODULE_NAME>/<ComponentName>.svelte",
+      "required": true,
+      "responsibility": "Contengono logica applicativa effettiva",
+      "logic": "Gestione stato locale, chiamate API, interazioni utente, business logic"
+    },
+    "module_index": {
+      "location": "/workspace/gui/src/mod_<MODULE_NAME>/index.html",
+      "required": true,
+      "responsibility": "Visualizza il layout del modulo isolato dal contesto applicativo",
+      "purpose": "Permette sviluppo e testing del modulo in isolamento",
+      "content": "File HTML che importa e visualizza il Layout.svelte del modulo con i relativi componenti"
+    }
+  },
+
+  "layout_rules": {
+    "naming": {
+      "application": "Layout.svelte nella root di /workspace/gui/src/",
+      "module": "Layout.svelte nella cartella del modulo",
+      "specialized": "<NOME_LAYOUT>Layout.svelte (PascalCase) per layout intermedi",
+      "pattern": "Il suffisso Layout.svelte identifica i file di layout",
+      "examples": [
+        "Layout.svelte (layout principale modulo)",
+        "DashboardLayout.svelte (layout specializzato)",
+        "SettingsLayout.svelte (layout specializzato)"
+      ]
+    },
+    "content": {
+      "minimal_logic": "Solo if/else per decidere quale area visualizzare",
+      "no_business_logic": "Nessuna logica applicativa nei layout",
+      "state_driven": "Le aree sono visualizzate in base allo stato",
+      "flexibility": "Un layout può visualizzare tutte le aree se necessario",
+      "component_visibility": "Il layout decide quali componenti visualizzare tramite if/else, i componenti si occupano solo del rendering"
+    },
+    "hierarchy": {
+      "pattern": "Layout ospita layout di livello inferiore o componenti",
+      "nesting": "Profondità gerarchica basata sulla complessità",
+      "principle": "Organizzare per ridurre complessità, non per rigidità architettonica"
+    }
+  },
+
+  "component_rules": {
+    "responsibility": "Logica applicativa, stato, API, interazioni, rendering",
+    "naming": {
+      "pattern": "<NOME_COMPONENTE>Component.svelte (PascalCase)",
+      "suffix": "Component.svelte identifica i file di componenti",
+      "examples": [
+        "InfoComponent.svelte",
+        "UserProfileComponent.svelte",
+        "LoginFormComponent.svelte"
+      ]
+    },
+    "location": "Nella cartella del modulo di appartenenza",
+    "state": "Componenti gestiscono il proprio stato locale e interagiscono con stato globale se necessario",
+    "rendering": {
+      "principle": "Il componente si occupa solo del rendering, non decide se essere visualizzato",
+      "visibility_decision": "La decisione di visualizzare o meno un componente compete al layout",
+      "forbidden": "Componenti che contengono logica per decidere la propria visibilità",
+      "required": "Componenti sempre renderizzabili, il layout decide quando mostrarli tramite if/else"
+    }
+  },
+
+  "state_management": {
+    "global_state": "Gestito a livello layout applicazione",
+    "module_state": "Gestito a livello layout modulo",
+    "local_state": "Gestito nei componenti",
+    "pattern": "Stato decide visibilità aree tramite if/else nei layout"
+  },
+
+  "examples": {
+    "application_layout": {
+      "file": "/workspace/gui/src/Layout.svelte",
+      "pattern": "{#if authenticated}\n  <ModuleLayout />\n{:else}\n  <LoginComponent />\n{/if}"
+    },
+    "module_layout": {
+      "file": "/workspace/gui/src/mod_status/Layout.svelte",
+      "pattern": "{#if showInfo}\n  <InfoComponent />\n{:else if showSettings}\n  <SettingsComponent />\n{/if}"
+    },
+    "component": {
+      "file": "/workspace/gui/src/mod_status/InfoComponent.svelte",
+      "content": "Logica per visualizzare informazioni, fetch da API, gestione eventi"
+    },
+    "module_index": {
+      "file": "/workspace/gui/src/mod_status/index.html",
+      "content": "<!DOCTYPE html>\n<html>\n<head>\n  <title>Module Name</title>\n</head>\n<body>\n  <div id=\"mod_<module_name>\"></div>\n  <script type=\"module\">\n    import { mount } from 'svelte';\n    import Layout from '/mod_<module_name>/Layout.svelte';\n    mount(Layout, { target: document.getElementById('mod_<module_name>') });\n  </script>\n</body>\n</html>",
+      "purpose": "Visualizza il modulo in isolamento per sviluppo e testing"
+    }
+  },
+
+  "anti_patterns": {
+    "forbidden": [
+      "Logica applicativa nei layout",
+      "Chiamate API dirette nei layout",
+      "Stato complesso gestito nei layout",
+      "Layout eccessivamente annidati senza necessità",
+      "Componenti che contengono altri componenti senza organizzazione",
+      "Componenti che decidono autonomamente se essere visualizzati (usare if/else nel layout, non nel componente)"
+    ]
+  }
+}
 ```
 
 ### Microservices
 
-I microservices di supporto all'applicazione rispettano il seguente DSL:
+I microservices di supporto all'applicazione rispettano il seguente DSL.
+
+Architettura dei microservizi: I microservizi C++ non sono mai condivisi
+direttamente tra più moduli. Ogni microservizio è sempre incapsulato nella
+logica di un modulo specifico e servito attraverso la catena architetturale:
+Gateway -> API -> Route -> Model -> Service -> Adapter -> Microservice. In
+questo modello, il modulo coincide con il microservizio. Se più moduli
+necessitano di funzionalità simili, ogni modulo deve avere il proprio
+microservizio indipendente, oppure la logica condivisa deve essere implementata
+a livello API Python, non come microservizio C++ generico. Questa scelta
+garantisce che ogni modulo sia autonomo, facilmente esportabile e mantenibile
+senza dipendenze trasversali.
 
 ```json
 {
   "dsl_name": "microtools_cpp_style",
   "version": "1.4",
   "description": "DSL per definire lo stile di codifica C++98 potenziato con sintassi esplicita",
-  
+
+  "architecture": {
+    "module_microservice_binding": {
+      "principle": "Ogni microservizio è incapsulato in un modulo specifico",
+      "rule": "I microservizi C++ non sono mai condivisi direttamente tra più moduli",
+      "flow": "Gateway -> API -> Route -> Model -> Service -> Adapter -> Microservice",
+      "module_equals_microservice": "Il modulo coincide con il microservizio",
+      "shared_logic": "Se più moduli necessitano di funzionalità simili, duplicare il microservizio per ogni modulo o implementare la logica condivisa a livello API Python",
+      "rationale": "Garantisce autonomia del modulo, esportabilità e assenza di dipendenze trasversali"
+    }
+  },
+
   "language_profile": {
     "base_standard": "C++98",
     "allowed_modern_features": [
@@ -945,7 +1120,43 @@ I microservices di supporto all'applicazione rispettano il seguente DSL:
       }
     ]
   },
-  
+
+  "configuration": {
+    "env_file": {
+      "required": true,
+      "location": "/workspace/services/mod_<MODULE_NAME>/.env.example",
+      "description": "Template delle variabili ambiente necessarie al microservizio",
+      "rules": [
+        "Ogni microservizio deve avere un file .env.example nella sua root",
+        "Il file contiene solo variabili con prefisso MICROSERVICE_",
+        "I valori servono come template per il file .env principale dell'applicazione",
+        "Il microservizio legge le variabili dal file .env principale in /workspace/.env"
+      ]
+    },
+    "no_hardcoded_values": {
+      "principle": "Nessun valore hardcoded nel codice, inclusi valori di default",
+      "forbidden": [
+        "host e porta espliciti nel codice",
+        "path di configurazione hardcoded",
+        "credenziali o DSN nel codice",
+        "valori di default hardcoded nelle variabili"
+      ],
+      "required": "Tutti i parametri configurabili devono essere letti da variabili ambiente senza valori di default hardcoded",
+      "forbidden_pattern": "std::string host = \"127.0.0.1\"; int port = 9001;",
+      "required_pattern": "std::string host = std::get<std::string>(env.get(\"MICROSERVICE_MOD_STATUS_HOST\"));",
+      "rationale": "I valori di default devono essere definiti solo nel file .env, non nel codice. Se la variabile ambiente manca, il microservizio deve fallire esplicitamente, non usare un default silenzioso."
+    },
+    "variable_naming": {
+      "prefix": "MICROSERVICE_",
+      "pattern": "MICROSERVICE_<MODULE_NAME>_<PARAMETER>",
+      "examples": [
+        "MICROSERVICE_MOD_STATUS_HOST",
+        "MICROSERVICE_MOD_STATUS_PORT",
+        "MICROSERVICE_MOD_ALERTS_TIMEOUT"
+      ]
+    }
+  },
+
   "examples": {
     "documented_header": {
       "file": "File.h",
@@ -974,3 +1185,39 @@ I moduli possono essere esportati e importati tramite archivi compressi:
   a meno che non venga usata l'opzione --force. Al termine dell'import vengono
   suggerite le operazioni di setup necessarie (installazione dipendenze Python,
   build del microservizio C++, installazione schema database).
+
+## Configurazione
+
+Il file di configurazione centralizzato /workspace/.env contiene tutte le
+variabili ambiente necessarie all'applicazione. Le variabili sono organizzate
+per prefisso che identifica il componente di riferimento.
+
+Prefissi standard:
+- MICROSERVICE_: Variabili per microservizi C++
+- API_: Variabili per il livello API Python
+- DB_: Variabili per database
+- REDIS_: Variabili per Redis
+- NGINX_: Variabili per Nginx
+
+Pattern di naming: <PREFISSO>_<COMPONENTE>_<PARAMETRO>
+
+Esempi:
+- MICROSERVICE_MOD_STATUS_HOST: host del microservizio mod_status
+- MICROSERVICE_MOD_STATUS_PORT: porta del microservizio mod_status
+- API_WORKERS: numero di worker Gunicorn per l'API
+- DB_DSN: DSN del database principale
+
+File .env.example: Ogni componente che richiede configurazione (microservizi,
+API, ecc.) deve fornire un file .env.example nella propria directory con le
+variabili necessarie. I valori di questi file servono come template da
+aggiungere al file .env principale in /workspace/.env. Il componente legge le
+variabili dal file .env principale, non dal proprio .env.example.
+
+Esempio per microservizio mod_status in /workspace/services/mod_status/.env.example:
+```
+MICROSERVICE_MOD_STATUS_HOST=127.0.0.1
+MICROSERVICE_MOD_STATUS_PORT=9001
+```
+
+Questi valori vengono copiati in /workspace/.env e letti dal microservizio
+tramite la classe mt::Env.
