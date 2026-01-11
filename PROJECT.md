@@ -33,6 +33,51 @@ chiarezza e semplicità.
 Il sistema è containerizzato e lo stato dei servizzi è gestito mediante S6 il
 cui scopo è garantire persistenza in caso di riavvio del container.
 
+### Gestione dei servizi con S6-overlay v3
+
+S6-overlay v3 è il sistema di supervisione dei processi utilizzato per gestire
+i servizi del framework (nginx, uvicorn, gunicorn, redis, microservizi C++).
+
+Architettura dei servizi:
+
+- **Template dei servizi**: `/workspace/install/s6/<service_name>/run`
+  - Contiene la configurazione del servizio
+  - Carica le variabili d'ambiente da `/workspace/.env`
+  - Viene copiato durante l'esecuzione di `setup.sh`
+
+- **Servizi disponibili**: `/etc/services.d.available/<service_name>/`
+  - Repository di tutti i servizi disponibili
+  - Copiati dai template durante il setup
+  - Persistenti tra i riavvii del container
+
+- **Servizi abilitati**: `/etc/services.d/<service_name>/`
+  - Contiene i servizi abilitati per l'avvio automatico
+  - Symlink o copia da `services.d.available`
+
+- **Servizi in esecuzione**: `/run/service/<service_name>/run`
+  - **IMPORTANTE**: Questo è il file effettivamente eseguito da S6
+  - Modifiche a `/etc/services.d/<service_name>/run` NON hanno effetto sui servizi in esecuzione
+  - Per applicare modifiche: copiare il file in `/run/service/<service_name>/run` e riavviare il servizio
+
+Caricamento variabili d'ambiente:
+
+Tutti i servizi devono caricare le variabili d'ambiente dal file `/workspace/.env`
+mediante il seguente pattern nel file `run`:
+
+```sh
+#!/bin/sh
+# Load environment variables from .env
+if [ -f /workspace/.env ]; then
+    set -a
+    . /workspace/.env
+    set +a
+fi
+# ... resto del servizio
+```
+
+Questo garantisce che tutte le configurazioni definite nel `.env` (come `DB_DSN`,
+variabili dei microservizi, ecc.) siano disponibili ai processi gestiti da S6.
+
 ## Progetti
 
 Un progetto applicativo basato su Microtools ha la seguente struttura:

@@ -1,3 +1,11 @@
 #!/bin/sh
 cd /workspace/api
+
+# Load environment variables from .env
+if [ -f /workspace/.env ]; then
+    set -a
+    . /workspace/.env
+    set +a
+fi
+
 exec /usr/local/bin/uvicorn main:app --host 127.0.0.1 --port 8000
