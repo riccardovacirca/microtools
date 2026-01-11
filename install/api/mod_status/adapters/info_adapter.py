@@ -6,14 +6,12 @@ and translates responses into Python dictionaries.
 import os
 import httpx
 from typing import Dict, Any
-from pydantic import validate_arguments
 
 MOD_STATUS_HOST = os.getenv("MOD_STATUS_HOST", "127.0.0.1")
 MOD_STATUS_PORT = os.getenv("MOD_STATUS_PORT", "9001")
 MOD_STATUS_URL = f"http://{MOD_STATUS_HOST}:{MOD_STATUS_PORT}"
 
 
-@validate_arguments
 async def get_runtime_info() -> Dict[str, Any]:
     """Fetches runtime information from mod_status C++ microservice.
 

@@ -2,7 +2,7 @@ import json
 import redis
 import os
 from typing import Dict, Any
-from pydantic import validate_arguments, Field
+from pydantic import ValidationError
 from ..adapters import info_adapter
 from ..models import info_models
 
@@ -12,8 +12,7 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
-@validate_arguments
-async def get_info(output: Dict[str, Any] = Field(...)) -> bool:
+async def get_info(output: Dict[str, Any]) -> bool:
     """Ottiene le informazioni dell'applicazione da Redis o dal microservizio C++.
 
     Logica:

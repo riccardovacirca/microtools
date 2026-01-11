@@ -123,27 +123,28 @@ Le funzioni applicative sono definite come segue:
 {
   "name": "application-function-python",
   "description": "Python application-layer functions with disciplined input/output validation via Pydantic, output dict pattern, bool return, and structured error handling.",
-  "role": "Expert Python developer for service-layer code. Enforce structured approach with automatic input validation, output validation via BaseModel, output parameter for results, bool return for status, and no exception propagation.",
+  "role": "Expert Python developer for service-layer code. Enforce structured approach with type-safe parameters, output validation via BaseModel, output parameter for results, bool return for status, and no exception propagation.",
   "template": {
     "function_declaration": {
-      "syntax": "@validate_arguments\ndef <function_name>(<input_params>, output: Dict[str, Any] = Field(...)) -> bool:",
+      "syntax": "def <function_name>(<input_params>, output: Dict[str, Any]) -> bool:",
       "constraints": {
-        "decorator": "@validate_arguments from Pydantic for automatic input validation",
+        "decorator": "no decorator needed - type hints provide documentation and IDE support",
         "naming": "descriptive, application-level name",
-        "parameters": "all input arguments must have type hints; scalar parameters use Field(...) constraints; output last parameter",
-        "field_constraints": "inline Field(...) for scalar parameters, types like EmailStr allowed for implicit validation",
-        "output_parameter": "output: Dict[str, Any] = Field(...) for storing validated results",
+        "parameters": "all input arguments must have type hints; use Pydantic types for implicit validation; output last parameter",
+        "pydantic_types": "use EmailStr, constr, PositiveInt, etc. for type validation where appropriate",
+        "output_parameter": "output: Dict[str, Any] for storing validated results",
         "return_type": "always bool",
         "modern_syntax": "use | for unions instead of Optional",
         "multiline": "parameters can be multiline for readability"
       },
-      "example": "@validate_arguments\ndef application_process_order(\n    order_data: OrderData,\n    user_email: EmailStr,\n    apply_discount: bool = Field(...),\n    output: Dict[str, Any] = Field(...)\n) -> bool:"
+      "example": "def application_process_order(\n    order_data: OrderData,\n    user_email: str,\n    apply_discount: bool,\n    output: Dict[str, Any]\n) -> bool:"
     },
     "input_policy": {
-      "scalar_params": "use Field(...) with constraints for inline validation",
-      "implicit_types": "EmailStr, constr, PositiveInt, conlist, etc. for implicit validation",
-      "complex_models": "define BaseModel in models.py only if structure is nested/complex",
-      "example": "user_email: EmailStr, age: int = Field(..., ge=18)"
+      "type_hints": "all parameters must have type hints for documentation and type checking",
+      "pydantic_types": "use Pydantic types (EmailStr, PositiveInt, etc.) for implicit validation in BaseModel",
+      "complex_models": "define BaseModel in models.py for nested/complex structures",
+      "validation": "input validation happens via BaseModel if needed, or manually in try block",
+      "example": "user_email: str, age: int, order_data: OrderData"
     },
     "output_policy": {
       "model": "all function outputs validated via dedicated BaseModel",
@@ -154,7 +155,7 @@ Le funzioni applicative sono definite come segue:
     },
     "pydantic_integration": {
       "required": true,
-      "imports": "from pydantic import validate_arguments, Field, BaseModel",
+      "imports": "from pydantic import Field, BaseModel, EmailStr, ValidationError",
       "models_for_complex_structures": {
         "required": true,
         "location": "models.py",
@@ -163,13 +164,13 @@ Le funzioni applicative sono definite come segue:
       },
       "field_usage": {
         "required": true,
-        "syntax": "param: Type = Field(..., <constraint>=<value>)",
-        "location": "inline in function parameters",
+        "syntax": "Field(..., <constraint>=<value>) only in BaseModel definitions",
+        "location": "in models.py BaseModel classes",
         "examples": [
-          "user_email: EmailStr",
+          "# In BaseModel definitions:",
+          "email: EmailStr",
           "age: int = Field(..., ge=18)",
-          "apply_discount: bool = Field(...)",
-          "output: Dict[str, Any] = Field(...)"
+          "status: str = Field(..., min_length=1)"
         ]
       }
     },
@@ -185,7 +186,7 @@ Le funzioni applicative sono definite come segue:
       },
       "try_block": {
         "required": true,
-        "input_validation": "automatic via Pydantic (@validate_arguments + Field or types like EmailStr)",
+        "input_validation": "manual if needed, or via BaseModel for complex inputs",
         "processing_logic": "set Err flags only for business logic errors; raise ValueError() WITHOUT message; populate result dict",
         "success_marker": "retv = True at end if processing succeeds"
       },
@@ -210,15 +211,14 @@ Le funzioni applicative sono definite come segue:
       "forbidden_constructs": [
         "return inside try or except",
         "raise exceptions outside try block",
-        "manual validation for parameters handled by Pydantic",
         "Err flags for validation errors",
         "BaseModel classes inline in function file",
-        "import models from files other than models.py"
+        "import models from files other than models.py",
+        "decorators on application functions"
       ],
       "required_constructs": [
-        "@validate_arguments decorator",
-        "BaseModel classes in models.py for complex structures",
-        "Field() inline for all scalar parameters",
+        "type hints for all parameters",
+        "BaseModel classes in models.py for complex structures and output validation",
         "output parameter as last argument",
         "bool return type",
         "Err class with class attributes only",
@@ -241,12 +241,12 @@ Le funzioni applicative sono definite come segue:
       }
     },
     "error_handling_philosophy": {
-      "validation_errors": "handled automatically via Pydantic; manual only for complex structures",
+      "validation_errors": "output validation via BaseModel; input validation manual or via BaseModel when needed",
       "logical_errors": "Err flags + raise ValueError() without message, messages mapped in except block",
       "exception_handling": "all exceptions caught in except, populate output['error'], return single retv"
     },
     "semantic_notes": {
-      "input_output_validation": "input validated inline via Field or implicit Pydantic types; output validated via BaseModel",
+      "input_output_validation": "output always validated via BaseModel; input validation as needed",
       "Err_class": "tracks only business logic errors, not validation",
       "retv_variable": "controls flow (False=failure, True=success)",
       "output_parameter": "dict populated after validation",
@@ -254,16 +254,15 @@ Le funzioni applicative sono definite come segue:
       "single_exit": "one return at end; exceptions never escape"
     },
     "summary": [
-      "@validate_arguments decorator for automatic input validation",
-      "Scalar input parameters: Field() inline or implicit Pydantic types (EmailStr, etc.)",
-      "Complex/nested input structures: BaseModel in models.py",
-      "Output validated via dedicated BaseModel, updated in output dict",
+      "type hints for all parameters (no decorator needed)",
+      "complex/nested input structures: BaseModel in models.py",
+      "output validated via dedicated BaseModel, updated in output dict",
       "Err class tracks business logic errors, not validation",
       "retv = True if processing succeeds",
       "except block sets output['error'], no return, no raise",
       "single return retv at end",
       "mirrors C-style application function pattern",
-      "strong type safety, automatic validation, clear separation of concerns"
+      "strong type safety, clear separation of concerns"
     ]
   }
 }
@@ -274,18 +273,26 @@ Lo skeleton di una funzione applicativa basato sul DSL è il seguente:
 ```python
 # application.py
 from typing import Dict, Any
-from pydantic import validate_arguments, Field
-from models import OrderResult
+from pydantic import BaseModel, Field, ValidationError
+from .models import order_models
 
-@validate_arguments
 def application_process_order(
-    order_id: int = Field(..., ge=1),
-    user_email: str = Field(..., min_length=5),
-    apply_discount: bool = Field(...),
-    output: Dict[str, Any] = Field(...)
+    order_id: int,
+    user_email: str,
+    apply_discount: bool,
+    output: Dict[str, Any]
 ) -> bool:
-    """Process an order, populating output dict and returning success status."""
-    
+    """Process an order, populating output dict and returning success status.
+
+    Args:
+        order_id: ID of the order to process
+        user_email: User's email address
+        apply_discount: Whether to apply discount
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     # Inner Err class for business logic errors
     class Err:
         calculation: bool = False
@@ -298,20 +305,23 @@ def application_process_order(
 
     try:
         # === Business logic processing ===
-        # Dummy logic for example
         subtotal = 100.0
         discount_amount = 10.0 if apply_discount else 0.0
-        
+
         if discount_amount < 0 or discount_amount > subtotal:
             Err.calculation = True
-            raise ValueError()  # no message
+            raise ValueError()
 
         total = subtotal - discount_amount
         item_count = 5
         status = "processed"
 
         # === Validate and populate output via Pydantic model ===
-        result_model = OrderResult(total=total, item_count=item_count, status=status)
+        result_model = order_models.OrderResult(
+            total=total,
+            item_count=item_count,
+            status=status
+        )
         result.update(result_model.model_dump())
 
         # Mark success
@@ -343,44 +353,36 @@ Le funzione helper sono definite come segue:
   "role": "Expert Python developer for service-layer or support code. Enforce minimal but disciplined DSL for helpers focused on type safety, validation, and predictable behavior.",
   "template": {
     "function_declaration": {
-      "syntax": "@validate_arguments\ndef <helper_function_name>(<param>: <Type> = Field(...), ...) -> <ReturnType>:",
+      "syntax": "def <helper_function_name>(<param>: <Type>, ...) -> <ReturnType>:",
       "constraints": {
-        "decorator": "@validate_arguments from pydantic for automatic validation",
+        "decorator": "no decorator - simple, clean type-safe functions",
         "naming": "descriptive helper name, prefixed with helper_ if desired",
         "type_hints": "mandatory for all parameters and return type",
-        "field_constraints": "use Field(...) from pydantic for validation constraints",
-        "no_optional_params": "all parameters required, use Field(...) to enforce",
+        "validation": "manual validation via if/raise where needed",
         "modern_syntax": "use | for unions if needed"
       },
       "examples": {
-        "with_constraints": "@validate_arguments\ndef helper_parse_integer(text: str = Field(..., min_length=1)) -> int:",
-        "simple": "@validate_arguments\ndef helper_merge_dicts(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:"
+        "with_validation": "def helper_parse_integer(text: str) -> int:",
+        "simple": "def helper_merge_dicts(dict1: Dict[str, Any], dict2: Dict[str, Any]) -> Dict[str, Any]:"
       }
     },
-    "pydantic_integration": {
+    "type_safety": {
       "required": true,
-      "imports": "from pydantic import validate_arguments, Field",
-      "decorator": "@validate_arguments",
-      "field_usage": {
-        "syntax": "param: Type = Field(..., <constraint>=<value>)",
-        "constraints": [
-          "min_length: minimum string length",
-          "max_length: maximum string length",
-          "ge: greater than or equal (numbers)",
-          "le: less than or equal (numbers)",
-          "...: required field marker"
-        ],
+      "imports": "from typing import Dict, Any, List",
+      "type_hints": "all parameters and return types must have type hints",
+      "validation": {
+        "approach": "manual validation where needed",
+        "pattern": "if <invalid_condition>:\n    raise ValueError('message')",
         "examples": [
-          "text: str = Field(..., min_length=1)",
-          "username: str = Field(..., min_length=3, max_length=50)",
-          "age: int = Field(..., ge=0, le=150)"
+          "if not text:\n    raise ValueError('text cannot be empty')",
+          "if age < 0 or age > 150:\n    raise ValueError('age must be between 0 and 150')"
         ]
       },
       "benefits": [
-        "automatic validation of parameter types",
-        "automatic validation of constraints",
-        "clear error messages for invalid inputs",
-        "reduces boilerplate validation code"
+        "clear type documentation",
+        "IDE autocomplete and type checking",
+        "explicit validation logic",
+        "simple and readable code"
       ]
     },
     "return_semantics": {
@@ -489,14 +491,14 @@ Le funzione helper sono definite come segue:
         "catching exceptions without re-raising or converting",
         "silent error suppression",
         "complex try/except blocks for control flow",
-        "error flags or error state management"
+        "error flags or error state management",
+        "decorators"
       ]
     },
     "required_constructs": {
       "list": [
-        "@validate_arguments decorator",
-        "Field constraints for parameters where appropriate",
         "complete type hints for all parameters and return",
+        "manual validation where appropriate (if/raise)",
         "specific exception raising for failures",
         "descriptive error messages",
         "single return statement at end"
@@ -504,7 +506,7 @@ Le funzione helper sono definite come segue:
     },
     "key_principles": {
       "explicit_over_implicit": "failures are explicit via exceptions, not implicit via None/False",
-      "type_safety": "strong typing with Pydantic validation",
+      "type_safety": "strong typing with type hints and manual validation",
       "single_exit": "predictable control flow with one return",
       "fail_fast": "validate early and raise exceptions immediately",
       "no_silent_failure": "all failures are communicated via exceptions",
@@ -542,7 +544,7 @@ Le funzione helper sono definite come segue:
         "try_except_wrapper": false,
         "error_flags": false,
         "single_exit_via_exception": true,
-        "pydantic_validation": true,
+        "type_hints": true,
         "direct_exceptions": true
       },
       "application_functions": {
@@ -552,17 +554,18 @@ Le funzione helper sono definite come segue:
         "try_except_wrapper": true,
         "error_flags": true,
         "single_exit_via_raise_and_return": true,
-        "pydantic_validation": "optional",
+        "type_hints": true,
         "centralized_error_mapping": true
       }
     },
     "complete_example": {
       "description": "Complete helper function example",
-      "code": "@validate_arguments\ndef helper_parse_integer(text: str = Field(..., min_length=1)) -> int:\n    \"\"\"Parse string to 32-bit integer.\n    \n    Args:\n        text: String to parse\n        \n    Returns:\n        Parsed integer\n        \n    Raises:\n        ValueError: If text is not valid integer or out of range\n    \"\"\"\n    value = int(text)  # raises ValueError if invalid\n    if value < -2147483648 or value > 2147483647:\n        raise ValueError(\"Integer out of 32-bit range\")\n    return value"
+      "code": "def helper_parse_integer(text: str) -> int:\n    \"\"\"Parse string to 32-bit integer.\n    \n    Args:\n        text: String to parse\n        \n    Returns:\n        Parsed integer\n        \n    Raises:\n        ValueError: If text is empty, not valid integer, or out of range\n    \"\"\"\n    if not text:\n        raise ValueError(\"text cannot be empty\")\n    value = int(text)  # raises ValueError if invalid\n    if value < -2147483648 or value > 2147483647:\n        raise ValueError(\"Integer out of 32-bit range\")\n    return value"
     },
     "summary_for_ai_agents": [
-      "Helper functions use @validate_arguments decorator",
-      "All parameters use Field() with constraints",
+      "Helper functions are simple type-safe functions without decorators",
+      "All parameters must have type hints",
+      "Manual validation where needed (if/raise)",
       "Failures communicated via specific exceptions (ValueError, TypeError, etc.)",
       "No Optional return types - use exceptions instead",
       "Single return statement at function end",
@@ -580,21 +583,28 @@ Lo skeleton di una funzione helper basato sul DSL è il seguente:
 
 ```python
 from typing import Dict, Any
-from pydantic import validate_arguments, Field
 
-@validate_arguments
-def helper_example(
-    text: str = Field(..., min_length=1),
-    limit: int = Field(..., ge=0)
-) -> Dict[str, Any]:
-    # validazione logica
-    if limit == 0:
+def helper_example(text: str, limit: int) -> Dict[str, Any]:
+    """Example helper function demonstrating DSL pattern.
+
+    Args:
+        text: Input text to process
+        limit: Maximum limit for processing
+
+    Returns:
+        Dict[str, Any]: Processed result
+
+    Raises:
+        ValueError: If parameters are invalid
+    """
+    # validazione input
+    if not text:
+        raise ValueError("text cannot be empty")
+    if limit <= 0:
         raise ValueError("limit must be greater than zero")
 
     # logica principale
-    result: Dict[str, Any] = {}
-
-    # result["key"] = value
+    result: Dict[str, Any] = {"text": text, "limit": limit}
 
     return result
 ```
@@ -608,12 +618,12 @@ il seguente DSL:
 {
   "name": "pydantic-application-dsl",
   "description": "Regole per l'uso idiomatico di Pydantic nelle funzioni applicative Python.",
-  "role": "Imporre validazione automatica di input e output per funzioni applicative, con output vincolato a un modello Pydantic.",
+  "role": "Imporre validazione dell'output per funzioni applicative, con output vincolato a un modello Pydantic.",
   "input_policy": {
     "parameters": "Tutti i parametri devono avere type hints",
-    "validation": "Usare Field(...) per vincoli inline o tipi Pydantic specifici (EmailStr, constr, PositiveInt, ecc.)",
-    "models": "Solo se necessario per ragioni di semplificazione, definire un modello BaseModel per input complessi",
-    "example": "user_email: EmailStr, age: int = Field(..., ge=18)"
+    "validation": "Validazione input manuale dove necessario, o tramite BaseModel per strutture complesse",
+    "models": "Definire BaseModel in models.py per input complessi o strutturati",
+    "example": "user_email: str, age: int, order_data: OrderData"
   },
   "output_policy": {
     "model": "Ogni funzione applicativa deve avere un modello BaseModel dedicato per l'output",
@@ -626,12 +636,13 @@ il seguente DSL:
     }
   },
   "function_pattern": {
-    "decorator": "@validate_arguments",
-    "signature": "def <function_name>(<input_params>, output: Dict[str, Any] = Field(...)) -> bool",
+    "decorator": "nessun decorator",
+    "signature": "def <function_name>(<input_params>, output: Dict[str, Any]) -> bool",
     "structure": [
       "definire classe Err con attributi booleani per errori di business",
-      "inizializzare retv=False, error=None",
+      "inizializzare retv=False, error=None, result={}",
       "try:",
+      "    validazione input manuale se necessario",
       "    logica di business",
       "    validazione output tramite modello BaseModel",
       "    retv=True se tutto valido",
@@ -642,7 +653,7 @@ il seguente DSL:
     ]
   },
   "principles": [
-    "Input validati automaticamente con Pydantic",
+    "Parametri con type hints per documentazione e type checking",
     "Output validato sempre tramite modello BaseModel dedicato",
     "Eccezioni di validazione catturate e convertite in errori nell'output",
     "Funzione applicativa ha un singolo punto di ritorno (bool)",
@@ -650,7 +661,7 @@ il seguente DSL:
   ],
   "benefits": [
     "Separazione chiara tra input, logica e output",
-    "Validazione consistente e tipizzata",
+    "Validazione consistente e tipizzata dell'output",
     "Riduzione di errori di runtime",
     "Output sempre conforme allo standard definito"
   ]

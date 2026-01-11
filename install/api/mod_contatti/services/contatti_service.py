@@ -1,6 +1,5 @@
 from typing import Dict, Any
 import os
-from pydantic import Field
 from ..models.contatto_models import (
     ContattoCreate,
     ContattoUpdate,

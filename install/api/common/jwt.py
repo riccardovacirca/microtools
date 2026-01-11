@@ -2,7 +2,6 @@
 
 This module provides JWT access token and refresh token utilities.
 """
-from pydantic import validate_arguments, Field
 import os
 import secrets
 import jwt
@@ -10,16 +9,12 @@ from datetime import datetime, timedelta
 from typing import Dict, Any
 
 
-@validate_arguments
-def create_access_token(
-    user_id: int = Field(..., ge=1),
-    email: str = Field(..., min_length=1)
-) -> str:
+def create_access_token(user_id: int, email: str) -> str:
     """Create JWT access token.
 
     Args:
-        user_id: User ID
-        email: User email
+        user_id: User ID (must be >= 1)
+        email: User email (cannot be empty)
 
     Returns:
         JWT access token string
@@ -27,6 +22,11 @@ def create_access_token(
     Raises:
         ValueError: If user_id or email invalid
     """
+    if user_id < 1:
+        raise ValueError("user_id must be >= 1")
+    if not email:
+        raise ValueError("email cannot be empty")
+
     secret_key = os.getenv("JWT_SECRET_KEY", "change-this-secret-key-in-production")
     algorithm = "HS256"
     expire_minutes = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "15"))
@@ -41,7 +41,6 @@ def create_access_token(
     return jwt.encode(payload, secret_key, algorithm=algorithm)
 
 
-@validate_arguments
 def create_refresh_token() -> str:
     """Create random refresh token.
 
@@ -51,12 +50,11 @@ def create_refresh_token() -> str:
     return secrets.token_urlsafe(32)
 
 
-@validate_arguments
-def verify_access_token(token: str = Field(..., min_length=1)) -> Dict[str, Any]:
+def verify_access_token(token: str) -> Dict[str, Any]:
     """Verify and decode JWT access token.
 
     Args:
-        token: JWT access token
+        token: JWT access token (cannot be empty)
 
     Returns:
         Decoded token payload dictionary
@@ -64,6 +62,9 @@ def verify_access_token(token: str = Field(..., min_length=1)) -> Dict[str, Any]
     Raises:
         ValueError: If token is invalid or expired
     """
+    if not token:
+        raise ValueError("token cannot be empty")
+
     secret_key = os.getenv("JWT_SECRET_KEY", "change-this-secret-key-in-production")
     algorithm = "HS256"
 

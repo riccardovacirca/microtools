@@ -182,7 +182,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
 # Install Python packages
 info "Installing Python packages (FastAPI, uvicorn, database drivers, Redis)..."
 pip3 install --no-cache-dir --break-system-packages \
-  fastapi "uvicorn[standard]" psycopg2-binary pymysql \
+  fastapi "uvicorn[standard]" psycopg2-binary pymysql pyodbc \
   python-dotenv pyjwt "email-validator" redis gunicorn httpx \
   >/dev/null 2>&1 || error "Failed to install Python packages"
 

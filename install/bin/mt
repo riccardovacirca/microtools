@@ -1813,9 +1813,9 @@ wa_status() {
         SERVICE_VAR=$(echo "$SERVICE_NAME" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
         BINARY_NAME=$(echo "$SERVICE_NAME" | sed 's/^mod_//')
 
-        # Get port from environment variable (e.g., MOD_STATUS_PORT)
-        eval "SERVICE_PORT=\${${SERVICE_VAR}_PORT}"
-        eval "SERVICE_HOST=\${${SERVICE_VAR}_HOST:-127.0.0.1}"
+        # Get port from environment variable (e.g., MICROSERVICE_MOD_STATUS_PORT or MOD_STATUS_PORT)
+        eval "SERVICE_PORT=\${MICROSERVICE_${SERVICE_VAR}_PORT:-\${${SERVICE_VAR}_PORT}}"
+        eval "SERVICE_HOST=\${MICROSERVICE_${SERVICE_VAR}_HOST:-\${${SERVICE_VAR}_HOST:-127.0.0.1}}"
 
         # Check if service is running (binary name without mod_ prefix)
         MS_STATUS=$(check_process "/tmp/$SERVICE_NAME.pid" "$SERVICE_DIR/bin/$BINARY_NAME")
