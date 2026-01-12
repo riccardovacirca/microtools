@@ -13,7 +13,7 @@ from .services import contatti_service
 router = APIRouter(prefix="/api/contatti", tags=["Contatti"])
 
 
-@router.post("/", response_model=ContattoResponse, status_code=201)
+@router.post("", response_model=ContattoResponse, status_code=201)
 async def create_contatto(contatto: ContattoCreate):
     output = {}
     success = contatti_service.create_contatto(contatto=contatto, output=output)
@@ -23,7 +23,7 @@ async def create_contatto(contatto: ContattoCreate):
         raise HTTPException(status_code=500, detail=output.get("error", "Failed to create contact"))
 
 
-@router.get("/", response_model=ContattoList)
+@router.get("", response_model=ContattoList)
 async def get_all_contatti(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),

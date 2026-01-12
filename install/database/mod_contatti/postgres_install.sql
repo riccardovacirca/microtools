@@ -1,2 +1,2 @@
--- @require mod_contatti/postgres/schema_install.sql
--- @require mod_contatti/postgres/data.sql
+-- @require postgres/schema_install.sql
+-- @require postgres/data.sql

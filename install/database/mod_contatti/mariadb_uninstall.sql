@@ -1,1 +1,1 @@
--- @require mod_contatti/mariadb/schema_uninstall.sql
+-- @require mariadb/schema_uninstall.sql

@@ -1,68 +1,75 @@
 # Microtools
 
-Microtools è un framework per lo sviluppo di applicazioni modulari basate su
-una architettura a 5 livelli: Gateway, GUI, API , Microservice, Database.
-Il Gateway e implementato mediante Nginx, la GUI è implementata in Vite/Svelte,
-la API in python/FastAPI (Uvicorn/Gunicorn), i Microservice in C++ e il
-database supporta i server SQLite3, MariaDB, PostgreSQL a cui si aggiunge il
-server Redis.
+Framework per applicazioni modulari basato su **architettura a 5 livelli**:
 
-Il livello Gateway (Nginx) riceve le richieste dai client HTTP e le inoltra al
-livello API.
+1. **Gateway**
 
-Il livello API è organizzato in moduli Python che implementano una
-logica basata su cinque entità applicative: Router, Model, Service, Adapter e
-Repository. Il Router implementa il routing delle richieste, i Model la
-validazione dei parametri della richiesta mediante Pydantic, i Service
-implementano la logica applicativa del modulo, i Repository definiscono la
-connessione con il database e gli Adapter implementano una interfaccia con il
-livello dei Microservice.
+   * Nginx
+   * Riceve richieste HTTP e le inoltra alle API
 
-Un modulo del livello API può gestire direttamente la richiesta del client
-oppure proxarla mediante un Adapter a un Microservice.
+2. **GUI**
 
-I Microservice sono sviluppati in C++ e sono in esecuzione per tutto il ciclo di
-vita dell'applicazione. L'ambiente di sviluppo dei Microservice è basato sul
-compilatore gcc e utilizza Cmake. Il framework comprende una libreria di
-supporto per lo sviluppo dei Microservice nella cartella lib. Lo scopo di questa
-libreria è anche quello di basare lo sviluppo dei Microservice su una logica
-comune e semplificata. L'organizzazione del codice dei componenti della libreria
-è basata su un DSL che definisce un insieme di vincoli sintattici che enfatizzano
-chiarezza e semplicità.
+   * Vite / Svelte
 
-Il sistema è containerizzato e lo stato dei servizzi è gestito mediante S6 il
-cui scopo è garantire persistenza in caso di riavvio del container.
+3. **API**
 
-### Gestione dei servizi con S6-overlay v3
+   * Python / FastAPI (Uvicorn / Gunicorn)
+   * Struttura a moduli con 5 entità:
 
-S6-overlay v3 è il sistema di supervisione dei processi utilizzato per gestire
-i servizi del framework (nginx, uvicorn, gunicorn, redis, microservizi C++).
+     * **Router**: routing delle richieste
+     * **Model**: validazione input (Pydantic)
+     * **Service**: logica applicativa
+     * **Repository**: accesso al database
+     * **Adapter**: interfaccia verso i Microservice
+   * Le richieste possono essere gestite localmente o proxate ai Microservice
 
-Architettura dei servizi:
+4. **Microservice**
 
-- **Template dei servizi**: `/workspace/install/s6/<service_name>/run`
-  - Contiene la configurazione del servizio
-  - Carica le variabili d'ambiente da `/workspace/.env`
-  - Viene copiato durante l'esecuzione di `setup.sh`
+   * C++
+   * Processi persistenti per l’intero ciclo di vita
+   * Toolchain: gcc + CMake
+   * Libreria di supporto (`lib`) con DSL per struttura del codice semplice e uniforme
 
-- **Servizi disponibili**: `/etc/services.d.available/<service_name>/`
-  - Repository di tutti i servizi disponibili
-  - Copiati dai template durante il setup
-  - Persistenti tra i riavvii del container
+5. **Database**
 
-- **Servizi abilitati**: `/etc/services.d/<service_name>/`
-  - Contiene i servizi abilitati per l'avvio automatico
-  - Symlink o copia da `services.d.available`
+   * SQLite3, MariaDB, PostgreSQL
+   * Redis
 
-- **Servizi in esecuzione**: `/run/service/<service_name>/run`
-  - **IMPORTANTE**: Questo è il file effettivamente eseguito da S6
-  - Modifiche a `/etc/services.d/<service_name>/run` NON hanno effetto sui servizi in esecuzione
-  - Per applicare modifiche: copiare il file in `/run/service/<service_name>/run` e riavviare il servizio
+**Deployment**
 
-Caricamento variabili d'ambiente:
+* Sistema containerizzato
+* Gestione dello stato dei servizi tramite **S6** per garantire persistenza ai riavvii
 
-Tutti i servizi devono caricare le variabili d'ambiente dal file `/workspace/.env`
-mediante il seguente pattern nel file `run`:
+### Gestione servizi con S6-overlay v3 (sintesi aggiornata)
+
+* **Ruolo**: supervisione dei servizi (nginx, uvicorn/gunicorn, redis, microservizi C++)
+* **Persistenza**: configurazione dei servizi persistente tra i riavvii del container
+
+**Struttura:**
+
+* **Template**: `/workspace/install/s6/<service>/run`
+  Configurazione del servizio, copiata da `setup.sh`, include il caricamento di `.env`
+
+* **Servizi disponibili**: `/etc/services.d.available/<service>/`
+  Repository dei servizi installabili
+
+* **Servizi abilitati**: `/etc/services.d/<service>/`
+  Configurazione persistente dei servizi da avviare automaticamente
+  (persistente nel ciclo di vita del container)
+
+* **Servizi in esecuzione**: `/run/service/<service>/run`
+  File realmente eseguito da S6
+  Directory runtime **non persistente** (rigenerata a ogni avvio)
+
+**Nota sulla persistenza:**
+
+* `/etc/services.d` → persistenza **configurativa**
+* `/run/service` → stato **runtime**, non persistente
+
+**Variabili d’ambiente:**
+
+* Tutti i servizi caricano `/workspace/.env` nel file `run`
+* Configurazione uniforme (DB, microservizi, ecc.)
 
 ```sh
 #!/bin/sh
@@ -75,44 +82,46 @@ fi
 # ... resto del servizio
 ```
 
-Questo garantisce che tutte le configurazioni definite nel `.env` (come `DB_DSN`,
-variabili dei microservizi, ecc.) siano disponibili ai processi gestiti da S6.
-
 ## Progetti
 
-Un progetto applicativo basato su Microtools ha la seguente struttura:
+### Struttura progetto Microtools (sintesi)
 
-- bin: Cartella degli script Bash di gestione del progetto
-- logs: Cartella dei logs
-- conf: Cartella dei file di configurazione dei servizi
-- api: Cartella dei moduli Python che espongono l'API del progetto
-- data: Cartella dati. Può contenere il database SQLite3
-- database: Cartella dei moduli SQL del progetto
-- gui: Cartella dei moduli del frontend Vite/Svelte
-- services: Cartella dei Microservice del progetto
-- .env: File di configurazione centralizzato
+**Directory principali:**
 
-A questi si aggiungono:
+* `bin` → script Bash di gestione
+* `logs` → log dei servizi
+* `conf` → configurazioni
+* `api` → moduli API Python
+* `data` → dati (es. SQLite)
+* `database` → moduli SQL
+* `gui` → frontend Vite/Svelte
+* `services` → microservizi C++
+* `.env` → configurazione centralizzata
 
-- .prototype: Cartella relativa al progetto originale git
-- install: Link simbolico alla cartella di installazione del framework
-- install.sh e setup.sh: Link simbolici agli script di installazione del framework
+**Componenti aggiuntivi:**
 
-La root del progetto e la cartella .prototype hanno un repository .git individuale
-per gestire gli aggiornamenti a livello del framework (che vengono condivisi tra
-tutte le installazioni) e gli aggiornamenti a livello della singola istanza del
-progetto.
+* `.prototype` → sorgente framework (repo Git dedicato)
+* `install` → symlink alla cartella di installazione
+* `install.sh`, `setup.sh` → symlink agli script del framework
 
-La gestione di un progetto applicativo con Microtools avviene mediante l'uso
-dello script sh bin/mt. Questo script può essere utilizzato per:
+**Versionamento:**
 
-- Start/Stop/Restart di un servizio di sistema o di un microservizio
-- Build di un microservizio C++ o del frontend Vite/Svelte
-- Verifica/Monitoraggio dello stato di un servizio di sistema o di un microservizio
-- Installazione di un modulo SQL di database
-- Sincronizzazione dei repository git della webapp e del framework
+* Root progetto e `.prototype` hanno **repository Git separati**
+* Aggiornamenti distinti: framework vs istanza applicativa
+
+**Gestione progetto:**
+
+* Script unico: `bin/mt`
+
+  * start/stop/restart servizi
+  * build microservizi e GUI
+  * monitoraggio stato servizi
+  * installazione moduli SQL
+  * sincronizzazione repository Git
 
 ## Moduli
+
+Ogni progetto è organizzato in modo modulare.
 
 Il modulo mod_status è un esempio di come i file e le cartelle di un modulo sono
 organizzate nel progetto.
@@ -721,7 +730,7 @@ from typing import List
 
 class OrderResult(BaseModel):
     """Output model for application function processing an order."""
-    total: float = Field(..., ge=0)                 # totale dell'ordine, >= 0
+    total: float = Field(..., ge=0)                # totale dell'ordine, >= 0
     item_count: int = Field(..., ge=0)             # numero di articoli, >= 0
     status: str = Field(..., min_length=1)         # stato dell'elaborazione
 ```
@@ -730,84 +739,88 @@ class OrderResult(BaseModel):
 
 ```
 Da documentare...
+Al momento non viene imposta nessula logica di dominio
 ```
 
 #### Repositories
 
 ```
 Da documentare...
+Al momento non viene imposta nessula logica di dominio
 ```
 
 #### Adapters
 
 ```
 Da documentare...
+Al momento non viene imposta nessula logica di dominio
 ```
 
 #### Workflow
 
 ```
 Da documentare...
+Al momento non viene imposta nessula logica di dominio
 ```
 
 ### Database
 
 ```
-/workspace/database/mod_status
-|-- /workspace/database/mod_status/mariadb
-|   |-- /workspace/database/mod_status/mariadb/data.sql
-|   |-- /workspace/database/mod_status/mariadb/schema_install.sql
-|   `-- /workspace/database/mod_status/mariadb/schema_uninstall.sql
-|-- /workspace/database/mod_status/mariadb_install.sql
-|-- /workspace/database/mod_status/mariadb_uninstall.sql
-|-- /workspace/database/mod_status/postgres
-|   |-- /workspace/database/mod_status/postgres/data.sql
-|   |-- /workspace/database/mod_status/postgres/schema_install.sql
-|   `-- /workspace/database/mod_status/postgres/schema_uninstall.sql
-|-- /workspace/database/mod_status/postgres_install.sql
-|-- /workspace/database/mod_status/postgres_uninstall.sql
-|-- /workspace/database/mod_status/sqlite3
-|   |-- /workspace/database/mod_status/sqlite3/data.sql
-|   |-- /workspace/database/mod_status/sqlite3/schema_install.sql
-|   `-- /workspace/database/mod_status/sqlite3/schema_uninstall.sql
-|-- /workspace/database/mod_status/sqlite3_install.sql
-`-- /workspace/database/mod_status/sqlite3_uninstall.sql
+/workspace/database/<MODULE_NAME>
+|-- mariadb
+|   |-- data.sql
+|   |-- schema_install.sql
+|   `-- schema_uninstall.sql
+|-- mariadb_install.sql
+|-- mariadb_uninstall.sql
+|-- postgres
+|   |-- data.sql
+|   |-- schema_install.sql
+|   `-- schema_uninstall.sql
+|-- postgres_install.sql
+|-- postgres_uninstall.sql
+|-- sqlite3
+|   |-- data.sql
+|   |-- schema_install.sql
+|   `-- schema_uninstall.sql
+|-- sqlite3_install.sql
+`-- sqlite3_uninstall.sql
 ```
 
 ### GUI
 
-La GUI è basata su Svelte e organizzata in una gerarchia di layout e componenti.
+* **Tecnologia**: Svelte
+* **Struttura**: layout gerarchici + componenti
 
-Architettura: La GUI si basa su layout gerarchici. Esiste un layout di livello
-applicazione che gestisce le sezioni da visualizzare in base allo stato globale
-(autenticazione, autorizzazioni, navigazione). Ogni modulo definisce il proprio
-layout che gestisce aree interne basate sullo stato del modulo. I layout non
-hanno logica applicativa se non quella minima necessaria a decidere quale area
-visualizzare tramite if/else di Svelte. I layout ospitano layout di livello
-inferiore o componenti. I componenti Svelte contengono la logica applicativa
-effettiva della GUI.
+**Principi:**
 
-Gerarchia:
-1. Layout applicazione (/workspace/gui/src/Layout.svelte): Gestisce lo stato
-   globale e decide quali moduli/sezioni visualizzare
-2. Layout modulo (/workspace/gui/src/mod_<name>/Layout.svelte): Gestisce lo
-   stato del modulo e decide quali aree/componenti visualizzare
-3. Layout specializzati (opzionali): Se la complessità lo richiede, layout
-   intermedi per organizzare componenti
-4. Componenti (.svelte): Contengono la logica applicativa, gestiscono stato
-   locale, chiamate API, interazioni utente
+* I **layout** gestiscono solo la visualizzazione (if/else su stato)
+* La **logica applicativa** è nei componenti
+* Struttura flessibile, non rigida
 
-Flessibilità: Un layout può visualizzare tutte le aree a prescindere dallo
-stato se la logica applicativa lo richiede. La struttura a layout non è rigida
-ma serve a organizzare la complessità.
+**Gerarchia:**
+
+1. **Layout applicazione**
+   Stato globale (auth, navigazione, moduli)
+2. **Layout di modulo**
+   Stato e aree del singolo modulo
+3. **Layout intermedi** (opzionali)
+   Organizzazione della complessità
+4. **Componenti Svelte**
+   Logica GUI, stato locale, chiamate API, interazioni
+
+**Nota:**
+
+* Un layout può mostrare tutte le aree se necessario
 
 ```
 /workspace/gui/src/
-|-- Layout.svelte                    (layout applicazione)
-|-- mod_status/
-|   |-- Layout.svelte                (layout modulo)
-|   |-- InfoComponent.svelte         (componente)
-|   `-- index.html
+|-- Layout.svelte                                (layout applicazione)
+|-- <MODULE_NAME>/
+|   |-- index.html
+|   |-- Layout.svelte                            (layout modulo)
+|   |-- <COMPONENT_NAME>Component.svelte         (componente)
+|   '-- ...                                      (altri componenti...)
 ```
 
 DSL GUI:
@@ -944,18 +957,30 @@ DSL GUI:
 
 ### Microservices
 
-I microservices di supporto all'applicazione rispettano il seguente DSL.
+* **DSL**: tutti i microservizi seguono un DSL comune
 
-Architettura dei microservizi: I microservizi C++ non sono mai condivisi
-direttamente tra più moduli. Ogni microservizio è sempre incapsulato nella
-logica di un modulo specifico e servito attraverso la catena architetturale:
-Gateway -> API -> Route -> Model -> Service -> Adapter -> Microservice. In
-questo modello, il modulo coincide con il microservizio. Se più moduli
-necessitano di funzionalità simili, ogni modulo deve avere il proprio
-microservizio indipendente, oppure la logica condivisa deve essere implementata
-a livello API Python, non come microservizio C++ generico. Questa scelta
-garantisce che ogni modulo sia autonomo, facilmente esportabile e mantenibile
-senza dipendenze trasversali.
+**Principi architetturali:**
+
+* Microservizi **non condivisi** tra moduli
+* Relazione **1:1 tra modulo e microservizio**
+* Nessuna dipendenza trasversale tra microservizi
+
+**Catena di accesso:**
+
+```
+Gateway → API → Route → Model → Service → Adapter → Microservice
+```
+
+**Condivisione logica:**
+
+* Logica **specifica** → microservizio C++ del modulo
+* Logica **condivisa** → livello API Python
+
+**Obiettivi:**
+
+* Autonomia dei moduli
+* Portabilità
+* Manutenibilità
 
 ```json
 {
@@ -1270,6 +1295,7 @@ aggiungere al file .env principale in /workspace/.env. Il componente legge le
 variabili dal file .env principale, non dal proprio .env.example.
 
 Esempio per microservizio mod_status in /workspace/services/mod_status/.env.example:
+
 ```
 MICROSERVICE_MOD_STATUS_HOST=127.0.0.1
 MICROSERVICE_MOD_STATUS_PORT=9001

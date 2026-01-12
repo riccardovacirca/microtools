@@ -12,7 +12,8 @@ from mod_contatti.routes import router as contatti_router
 app = FastAPI(
     title=os.getenv("PROJECT_NAME", "microservice"),
     version=os.getenv("VERSION", "1.0.0"),
-    description="FastAPI Microservice Gateway"
+    description="FastAPI Microservice Gateway",
+    redirect_slashes=False
 )
 
 # CORS middleware

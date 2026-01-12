@@ -1,1 +1,1 @@
--- @require mod_contatti/sqlite3/schema_uninstall.sql
+-- @require sqlite3/schema_uninstall.sql

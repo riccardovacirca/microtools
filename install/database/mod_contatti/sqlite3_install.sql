@@ -1,2 +1,2 @@
--- @require mod_contatti/sqlite3/schema_install.sql
--- @require mod_contatti/sqlite3/data.sql
+-- @require sqlite3/schema_install.sql
+-- @require sqlite3/data.sql
