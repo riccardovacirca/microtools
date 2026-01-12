@@ -17,6 +17,9 @@ server {
 
     # API routes - proxy to FastAPI/Gunicorn
     location /api/ {
+        # Rimuovi trailing slash prima del proxy
+        rewrite ^(.+)/$ $1 break;
+
         proxy_pass http://fastapi_backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

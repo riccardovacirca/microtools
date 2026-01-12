@@ -6,6 +6,7 @@ Framework per applicazioni modulari basato su **architettura a 5 livelli**:
 
    * Nginx
    * Riceve richieste HTTP e le inoltra alle API
+   * **Trailing slash**: normalizza automaticamente gli URL API rimuovendo il trailing slash prima del proxy (esempio: `/api/status/info/` → `/api/status/info`) per garantire compatibilità con le route FastAPI definite senza slash finale
 
 2. **GUI**
 
