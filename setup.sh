@@ -385,7 +385,7 @@ mkdir -p /var/log/nginx
 
 # Create directories
 mkdir -p /workspace/api
-mkdir -p /workspace/api/common
+mkdir -p /workspace/api/microtools
 mkdir -p /workspace/services
 mkdir -p /var/log/nginx
 mkdir -p /workspace/logs
@@ -431,7 +431,7 @@ if [ -d /workspace/install/api ]; then
 
   # Cleanup: remove existing modules and cache
   rm -rf /workspace/api/mod_*
-  rm -rf /workspace/api/common
+  rm -rf /workspace/api/microtools
   rm -rf /workspace/api/__pycache__
   find /workspace/api -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
