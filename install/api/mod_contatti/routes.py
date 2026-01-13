@@ -117,8 +117,7 @@ async def get_all_liste():
     output = {}
     success = contatti_service.get_all_liste(output=output)
     if success:
-        liste = output.get("liste", [])
-        return [ListaContattiResponse(**l) for l in liste]
+        return output.get("liste", [])
     else:
         raise HTTPException(status_code=500, detail=output.get("error", "Failed to retrieve lists"))
 

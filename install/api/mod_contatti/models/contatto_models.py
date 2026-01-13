@@ -107,5 +107,20 @@ class ListaContattiResponse(ListaContattiBase):
         from_attributes = True
 
 
+class DeleteResult(BaseModel):
+    """Output model for delete operations"""
+    deleted: bool = Field(..., description="Deletion success flag")
+
+
+class RestoreResult(BaseModel):
+    """Output model for restore operations"""
+    restored: bool = Field(..., description="Restore success flag")
+
+
+class ListeResult(BaseModel):
+    """Output model for get all liste operation"""
+    liste: List[ListaContattiResponse] = Field(..., description="List of all contact lists")
+
+
 # Update forward references
 ContattoResponse.model_rebuild()

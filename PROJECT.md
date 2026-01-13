@@ -85,7 +85,7 @@ fi
 
 ## Progetti
 
-### Struttura progetto Microtools (sintesi)
+### Struttura progetto
 
 **Directory principali:**
 
@@ -120,57 +120,9 @@ fi
   * installazione moduli SQL
   * sincronizzazione repository Git
 
-## Moduli
+### Organizzazione del codice
 
-Ogni progetto è organizzato in modo modulare.
-
-Il modulo mod_status è un esempio di come i file e le cartelle di un modulo sono
-organizzate nel progetto.
-
-Il livello più alto è rappresentato dalla API (Python) che fornisce il routing e
-la validazione dell'input. I componenti Database, GUI e Services sono opzionali.
-
-### API
-
-L'entità API di un modulo ha la seguente struttura. La logica è definita nei
-services. routes.py, repositories, adapters e models sono di supporto ai
-services.
-
-Naming: I nomi di services, models, repositories e adapters devono riflettere
-la funzione specifica svolta, non il nome del modulo. Usare il pattern
-<FUNCTION_NAME>_<entity_type>.py dove FUNCTION_NAME descrive la funzionalità
-implementata (es. info, alert, report). Questo permette di distinguere le
-entità quando un modulo implementa più funzionalità. L'adapter ha il nome della
-funzione e si connette internamente al microservizio C++ che mantiene il nome
-del modulo.
-
-Esempio: Nel modulo mod_status, il service che recupera info applicazione si
-chiama info_service.py (non status_service.py), con info_models.py,
-info_adapter.py, ecc. L'adapter info_adapter.py si connette al microservizio
-mod_status.
-
-```
-/workspace/api/mod_<MODULE_NAME>/
-|-- adapters/
-|   |-- <FUNCTION_NAME>_adapter.py
-|   '-- ...
-|-- models/
-|   |-- <FUNCTION_NAME>_models.py
-|   '-- ...
-|-- repositories/
-|   |-- <FUNCTION_NAME>_repository.py
-|   '-- ...
-|-- services/
-|   |-- <FUNCTION_NAME>_service.py
-|   '-- ...
-|-- routes.py
-`-- workflow.md
-```
-
-#### Service
-
-Questa entità applicativa usa due tipi di funzione: funzioni applicative e
-funzioni helper.
+#### Funzioni applicative
 
 Le funzioni applicative sono definite come segue:
 
@@ -183,7 +135,6 @@ Le funzioni applicative sono definite come segue:
     "function_declaration": {
       "syntax": "def <function_name>(<input_params>, output: Dict[str, Any]) -> bool:",
       "constraints": {
-        "decorator": "no decorator needed - type hints provide documentation and IDE support",
         "naming": "descriptive, application-level name",
         "parameters": "all input arguments must have type hints; use Pydantic types for implicit validation; output last parameter",
         "pydantic_types": "use EmailStr, constr, PositiveInt, etc. for type validation where appropriate",
@@ -268,8 +219,7 @@ Le funzioni applicative sono definite come segue:
         "raise exceptions outside try block",
         "Err flags for validation errors",
         "BaseModel classes inline in function file",
-        "import models from files other than models.py",
-        "decorators on application functions"
+        "import models from files other than models.py"
       ],
       "required_constructs": [
         "type hints for all parameters",
@@ -309,7 +259,7 @@ Le funzioni applicative sono definite come segue:
       "single_exit": "one return at end; exceptions never escape"
     },
     "summary": [
-      "type hints for all parameters (no decorator needed)",
+      "type hints for all parameters",
       "complex/nested input structures: BaseModel in models.py",
       "output validated via dedicated BaseModel, updated in output dict",
       "Err class tracks business logic errors, not validation",
@@ -399,7 +349,9 @@ def application_process_order(
     return retv
 ```
 
-Le funzione helper sono definite come segue:
+#### Funzioni helper
+
+Le funzioni helper sono definite come segue:
 
 ```json
 {
@@ -410,7 +362,6 @@ Le funzione helper sono definite come segue:
     "function_declaration": {
       "syntax": "def <helper_function_name>(<param>: <Type>, ...) -> <ReturnType>:",
       "constraints": {
-        "decorator": "no decorator - simple, clean type-safe functions",
         "naming": "descriptive helper name, prefixed with helper_ if desired",
         "type_hints": "mandatory for all parameters and return type",
         "validation": "manual validation via if/raise where needed",
@@ -546,8 +497,7 @@ Le funzione helper sono definite come segue:
         "catching exceptions without re-raising or converting",
         "silent error suppression",
         "complex try/except blocks for control flow",
-        "error flags or error state management",
-        "decorators"
+        "error flags or error state management"
       ]
     },
     "required_constructs": {
@@ -618,7 +568,7 @@ Le funzione helper sono definite come segue:
       "code": "def helper_parse_integer(text: str) -> int:\n    \"\"\"Parse string to 32-bit integer.\n    \n    Args:\n        text: String to parse\n        \n    Returns:\n        Parsed integer\n        \n    Raises:\n        ValueError: If text is empty, not valid integer, or out of range\n    \"\"\"\n    if not text:\n        raise ValueError(\"text cannot be empty\")\n    value = int(text)  # raises ValueError if invalid\n    if value < -2147483648 or value > 2147483647:\n        raise ValueError(\"Integer out of 32-bit range\")\n    return value"
     },
     "summary_for_ai_agents": [
-      "Helper functions are simple type-safe functions without decorators",
+      "Helper functions are simple type-safe functions",
       "All parameters must have type hints",
       "Manual validation where needed (if/raise)",
       "Failures communicated via specific exceptions (ValueError, TypeError, etc.)",
@@ -664,6 +614,58 @@ def helper_example(text: str, limit: int) -> Dict[str, Any]:
     return result
 ```
 
+## Moduli
+
+Ogni progetto è organizzato in modo modulare.
+
+Il modulo mod_status è un esempio di come i file e le cartelle di un modulo sono
+organizzate nel progetto.
+
+Il livello più alto è rappresentato dalla API (Python) che fornisce il routing e
+la validazione dell'input. I componenti Database, GUI e Services sono opzionali.
+
+### API
+
+L'entità API di un modulo ha la seguente struttura. La logica è definita nei
+services. routes.py, repositories, adapters e models sono di supporto ai
+services.
+
+Naming: I nomi di services, models, repositories e adapters devono riflettere
+la funzione specifica svolta, non il nome del modulo. Usare il pattern
+<FUNCTION_NAME>_<entity_type>.py dove FUNCTION_NAME descrive la funzionalità
+implementata (es. info, alert, report). Questo permette di distinguere le
+entità quando un modulo implementa più funzionalità. L'adapter ha il nome della
+funzione e si connette internamente al microservizio C++ che mantiene il nome
+del modulo.
+
+Esempio: Nel modulo mod_status, il service che recupera info applicazione si
+chiama info_service.py (non status_service.py), con info_models.py,
+info_adapter.py, ecc. L'adapter info_adapter.py si connette al microservizio
+mod_status.
+
+```
+/workspace/api/mod_<MODULE_NAME>/
+|-- adapters/
+|   |-- <FUNCTION_NAME>_adapter.py
+|   '-- ...
+|-- models/
+|   |-- <FUNCTION_NAME>_models.py
+|   '-- ...
+|-- repositories/
+|   |-- <FUNCTION_NAME>_repository.py
+|   '-- ...
+|-- services/
+|   |-- <FUNCTION_NAME>_service.py
+|   '-- ...
+|-- routes.py
+`-- workflow.md
+```
+
+#### Service
+
+Questa entità applicativa usa due tipi di funzione: funzioni applicative e
+funzioni helper.
+
 #### Models
 
 I models Pydantic sono usati per la validazione dell'input e dell'output secondo
@@ -691,7 +693,6 @@ il seguente DSL:
     }
   },
   "function_pattern": {
-    "decorator": "nessun decorator",
     "signature": "def <function_name>(<input_params>, output: Dict[str, Any]) -> bool",
     "structure": [
       "definire classe Err con attributi booleani per errori di business",
@@ -745,10 +746,7 @@ Al momento non viene imposta nessula logica di dominio
 
 #### Repositories
 
-```
-Da documentare...
-Al momento non viene imposta nessula logica di dominio
-```
+I repositories vengono implementati mediante funzioni helper
 
 #### Adapters
 

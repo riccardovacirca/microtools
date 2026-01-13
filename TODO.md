@@ -143,3 +143,6 @@
   Verificare che il modulo /workspace/gui/src/mod_status della gui sia collegato
   correttamente all'endpoint /api/status/info ed esponga graficamente il valore
   restituito da esso.
+
+- aggiungere al file setup.sh l'installazione dei pacchetti apt nano e tree nel
+  container di sviluppo 

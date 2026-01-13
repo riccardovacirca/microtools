@@ -6,7 +6,10 @@ from ..models.contatto_models import (
     ContattoResponse,
     ContattoList,
     ListaContattiCreate,
-    ListaContattiResponse
+    ListaContattiResponse,
+    DeleteResult,
+    RestoreResult,
+    ListeResult
 )
 from ..repositories.contatti_repository import ContattiRepository, ListeContattiRepository
 
@@ -15,12 +18,19 @@ contatti_repo = ContattiRepository(db_dsn)
 liste_repo = ListeContattiRepository(db_dsn)
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def create_contatto(contatto: ContattoCreate, output: Dict[str, Any]) -> bool:
+    """Create a new contatto, populating output dict and returning success status.
+
+    Args:
+        contatto: Contact data to create
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_create: bool = False
         repository_get: bool = False
-        validation: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -29,23 +39,23 @@ def create_contatto(contatto: ContattoCreate, output: Dict[str, Any]) -> bool:
     try:
         contatto_id = contatti_repo.create(contatto)
         if not contatto_id:
-            if Err.repository_create:
-                error = "Failed to create contact in repository"
-        else:
-            contatto_data = contatti_repo.get_by_id(contatto_id)
-            if not contatto_data:
-                if Err.repository_get:
-                    error = "Failed to retrieve created contact"
-            else:
-                try:
-                    contatto_response = ContattoResponse(**contatto_data)
-                    result.update(contatto_response.model_dump())
-                    retv = True
-                except Exception as e:
-                    if Err.validation:
-                        error = f"Validation error: {str(e)}"
+            Err.repository_create = True
+            raise ValueError()
+        contatto_data = contatti_repo.get_by_id(contatto_id)
+        if not contatto_data:
+            Err.repository_get = True
+            raise ValueError()
+        contatto_response = ContattoResponse(**contatto_data)
+        result.update(contatto_response.model_dump())
+        retv = True
+
     except Exception as e:
-        error = str(e)
+        if Err.repository_create:
+            error = "Failed to create contact in repository"
+        elif Err.repository_get:
+            error = "Failed to retrieve created contact"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -55,11 +65,17 @@ def create_contatto(contatto: ContattoCreate, output: Dict[str, Any]) -> bool:
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def get_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
+    """Get a contatto by ID, populating output dict and returning success status.
+
+    Args:
+        contatto_id: ID of the contact to retrieve
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
-        repository_get: bool = False
-        validation: bool = False
         not_found: bool = False
 
     retv: bool = False
@@ -69,19 +85,17 @@ def get_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     try:
         contatto_data = contatti_repo.get_by_id(contatto_id)
         if not contatto_data:
-            if Err.not_found:
-                error = "Contact not found"
-        else:
-            try:
-                contatto_response = ContattoResponse(**contatto_data)
-                result.update(contatto_response.model_dump())
-                retv = True
-            except Exception as e:
-                if Err.validation:
-                    error = f"Validation error: {str(e)}"
+            Err.not_found = True
+            raise ValueError()
+        contatto_response = ContattoResponse(**contatto_data)
+        result.update(contatto_response.model_dump())
+        retv = True
+
     except Exception as e:
-        if Err.repository_get:
-            error = f"Repository error: {str(e)}"
+        if Err.not_found:
+            error = "Contact not found"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -91,11 +105,20 @@ def get_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def get_all_contatti(page: int, page_size: int, include_deleted: bool, output: Dict[str, Any]) -> bool:
+    """Get all contatti with pagination, populating output dict and returning success status.
+
+    Args:
+        page: Page number (starting from 1)
+        page_size: Number of items per page
+        include_deleted: Whether to include soft-deleted contacts
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_get: bool = False
-        validation: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -103,36 +126,44 @@ def get_all_contatti(page: int, page_size: int, include_deleted: bool, output: D
 
     try:
         contatti_data, total = contatti_repo.get_all(page, page_size, include_deleted)
-        try:
-            contatti = [ContattoResponse.model_validate(c) for c in contatti_data]
-            contatti_list = ContattoList(
-                total=total,
-                page=page,
-                page_size=page_size,
-                contatti=contatti
-            )
-            result.update(contatti_list.model_dump(mode='json'))
-            retv = True
-        except Exception as e:
-            error = f"Validation error: {str(e)}"
+        contatti = [ContattoResponse.model_validate(c) for c in contatti_data]
+        contatti_list = ContattoList(
+            total=total,
+            page=page,
+            page_size=page_size,
+            contatti=contatti
+        )
+        result.update(contatti_list.model_dump(mode='json'))
+        retv = True
+
     except Exception as e:
-        error = f"Repository error: {str(e)}"
+        if Err.repository_get:
+            error = "Repository error during retrieval"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
     else:
-        output["error"] = error if error else "Unknown error"
+        output["error"] = error
 
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def update_contatto(contatto_id: int, contatto: ContattoUpdate, output: Dict[str, Any]) -> bool:
+    """Update an existing contatto, populating output dict and returning success status.
+
+    Args:
+        contatto_id: ID of the contact to update
+        contatto: Contact data to update
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_update: bool = False
         repository_get: bool = False
-        validation: bool = False
-        not_found: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -141,24 +172,23 @@ def update_contatto(contatto_id: int, contatto: ContattoUpdate, output: Dict[str
     try:
         success = contatti_repo.update(contatto_id, contatto)
         if not success:
-            if Err.not_found:
-                error = "Contact not found or update failed"
-        else:
-            contatto_data = contatti_repo.get_by_id(contatto_id)
-            if not contatto_data:
-                if Err.repository_get:
-                    error = "Failed to retrieve updated contact"
-            else:
-                try:
-                    contatto_response = ContattoResponse(**contatto_data)
-                    result.update(contatto_response.model_dump())
-                    retv = True
-                except Exception as e:
-                    if Err.validation:
-                        error = f"Validation error: {str(e)}"
+            Err.repository_update = True
+            raise ValueError()
+        contatto_data = contatti_repo.get_by_id(contatto_id)
+        if not contatto_data:
+            Err.repository_get = True
+            raise ValueError()
+        contatto_response = ContattoResponse(**contatto_data)
+        result.update(contatto_response.model_dump())
+        retv = True
+
     except Exception as e:
         if Err.repository_update:
-            error = f"Repository error: {str(e)}"
+            error = "Contact not found or update failed"
+        elif Err.repository_get:
+            error = "Failed to retrieve updated contact"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -168,11 +198,18 @@ def update_contatto(contatto_id: int, contatto: ContattoUpdate, output: Dict[str
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def soft_delete_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
+    """Soft delete a contatto, populating output dict and returning success status.
+
+    Args:
+        contatto_id: ID of the contact to soft delete
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_delete: bool = False
-        not_found: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -181,14 +218,17 @@ def soft_delete_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     try:
         success = contatti_repo.soft_delete(contatto_id)
         if not success:
-            if Err.not_found:
-                error = "Contact not found or already deleted"
-        else:
-            result["deleted"] = True
-            retv = True
+            Err.repository_delete = True
+            raise ValueError()
+        delete_result = DeleteResult(deleted=True)
+        result.update(delete_result.model_dump())
+        retv = True
+
     except Exception as e:
         if Err.repository_delete:
-            error = f"Repository error: {str(e)}"
+            error = "Contact not found or already deleted"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -198,11 +238,18 @@ def soft_delete_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def restore_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
+    """Restore a soft-deleted contatto, populating output dict and returning success status.
+
+    Args:
+        contatto_id: ID of the contact to restore
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_restore: bool = False
-        not_found: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -211,14 +258,17 @@ def restore_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     try:
         success = contatti_repo.restore(contatto_id)
         if not success:
-            if Err.not_found:
-                error = "Contact not found or not deleted"
-        else:
-            result["restored"] = True
-            retv = True
+            Err.repository_restore = True
+            raise ValueError()
+        restore_result = RestoreResult(restored=True)
+        result.update(restore_result.model_dump())
+        retv = True
+
     except Exception as e:
         if Err.repository_restore:
-            error = f"Repository error: {str(e)}"
+            error = "Contact not found or not deleted"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -228,11 +278,18 @@ def restore_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def hard_delete_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
+    """Hard delete a contatto, populating output dict and returning success status.
+
+    Args:
+        contatto_id: ID of the contact to permanently delete
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_delete: bool = False
-        not_found: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -241,14 +298,17 @@ def hard_delete_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     try:
         success = contatti_repo.hard_delete(contatto_id)
         if not success:
-            if Err.not_found:
-                error = "Contact not found"
-        else:
-            result["deleted"] = True
-            retv = True
+            Err.repository_delete = True
+            raise ValueError()
+        delete_result = DeleteResult(deleted=True)
+        result.update(delete_result.model_dump())
+        retv = True
+
     except Exception as e:
         if Err.repository_delete:
-            error = f"Repository error: {str(e)}"
+            error = "Contact not found"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -258,11 +318,20 @@ def hard_delete_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def search_contatti(query: str, page: int, page_size: int, output: Dict[str, Any]) -> bool:
+    """Search contatti by query, populating output dict and returning success status.
+
+    Args:
+        query: Search query string
+        page: Page number (starting from 1)
+        page_size: Number of items per page
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_search: bool = False
-        validation: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -270,22 +339,21 @@ def search_contatti(query: str, page: int, page_size: int, output: Dict[str, Any
 
     try:
         contatti_data, total = contatti_repo.search(query, page, page_size)
-        try:
-            contatti = [ContattoResponse(**c) for c in contatti_data]
-            contatti_list = ContattoList(
-                total=total,
-                page=page,
-                page_size=page_size,
-                contatti=contatti
-            )
-            result.update(contatti_list.model_dump())
-            retv = True
-        except Exception as e:
-            if Err.validation:
-                error = f"Validation error: {str(e)}"
+        contatti = [ContattoResponse(**c) for c in contatti_data]
+        contatti_list = ContattoList(
+            total=total,
+            page=page,
+            page_size=page_size,
+            contatti=contatti
+        )
+        result.update(contatti_list.model_dump())
+        retv = True
+
     except Exception as e:
         if Err.repository_search:
-            error = f"Repository error: {str(e)}"
+            error = "Repository error during search"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -295,12 +363,19 @@ def search_contatti(query: str, page: int, page_size: int, output: Dict[str, Any
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def create_lista(lista: ListaContattiCreate, output: Dict[str, Any]) -> bool:
+    """Create a new lista contatti, populating output dict and returning success status.
+
+    Args:
+        lista: List data to create
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_create: bool = False
         repository_get: bool = False
-        validation: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -309,23 +384,23 @@ def create_lista(lista: ListaContattiCreate, output: Dict[str, Any]) -> bool:
     try:
         lista_id = liste_repo.create(lista.nome, lista.descrizione)
         if not lista_id:
-            if Err.repository_create:
-                error = "Failed to create list in repository"
-        else:
-            lista_data = liste_repo.get_by_id(lista_id)
-            if not lista_data:
-                if Err.repository_get:
-                    error = "Failed to retrieve created list"
-            else:
-                try:
-                    lista_response = ListaContattiResponse(**lista_data)
-                    result.update(lista_response.model_dump())
-                    retv = True
-                except Exception as e:
-                    if Err.validation:
-                        error = f"Validation error: {str(e)}"
+            Err.repository_create = True
+            raise ValueError()
+        lista_data = liste_repo.get_by_id(lista_id)
+        if not lista_data:
+            Err.repository_get = True
+            raise ValueError()
+        lista_response = ListaContattiResponse(**lista_data)
+        result.update(lista_response.model_dump())
+        retv = True
+
     except Exception as e:
-        error = str(e)
+        if Err.repository_create:
+            error = "Failed to create list in repository"
+        elif Err.repository_get:
+            error = "Failed to retrieve created list"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -335,11 +410,17 @@ def create_lista(lista: ListaContattiCreate, output: Dict[str, Any]) -> bool:
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def get_all_liste(output: Dict[str, Any]) -> bool:
+    """Get all liste contatti, populating output dict and returning success status.
+
+    Args:
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_get: bool = False
-        validation: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -347,16 +428,16 @@ def get_all_liste(output: Dict[str, Any]) -> bool:
 
     try:
         liste_data = liste_repo.get_all()
-        try:
-            liste = [ListaContattiResponse(**l) for l in liste_data]
-            result["liste"] = [l.model_dump() for l in liste]
-            retv = True
-        except Exception as e:
-            if Err.validation:
-                error = f"Validation error: {str(e)}"
+        liste = [ListaContattiResponse(**l) for l in liste_data]
+        liste_result = ListeResult(liste=liste)
+        result.update(liste_result.model_dump())
+        retv = True
+
     except Exception as e:
         if Err.repository_get:
-            error = f"Repository error: {str(e)}"
+            error = "Repository error during retrieval"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -366,11 +447,17 @@ def get_all_liste(output: Dict[str, Any]) -> bool:
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def get_lista(lista_id: int, output: Dict[str, Any]) -> bool:
+    """Get a lista contatti by ID, populating output dict and returning success status.
+
+    Args:
+        lista_id: ID of the list to retrieve
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
-        repository_get: bool = False
-        validation: bool = False
         not_found: bool = False
 
     retv: bool = False
@@ -380,19 +467,17 @@ def get_lista(lista_id: int, output: Dict[str, Any]) -> bool:
     try:
         lista_data = liste_repo.get_by_id(lista_id)
         if not lista_data:
-            if Err.not_found:
-                error = "List not found"
-        else:
-            try:
-                lista_response = ListaContattiResponse(**lista_data)
-                result.update(lista_response.model_dump())
-                retv = True
-            except Exception as e:
-                if Err.validation:
-                    error = f"Validation error: {str(e)}"
+            Err.not_found = True
+            raise ValueError()
+        lista_response = ListaContattiResponse(**lista_data)
+        result.update(lista_response.model_dump())
+        retv = True
+
     except Exception as e:
-        if Err.repository_get:
-            error = f"Repository error: {str(e)}"
+        if Err.not_found:
+            error = "List not found"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)
@@ -402,11 +487,18 @@ def get_lista(lista_id: int, output: Dict[str, Any]) -> bool:
     return retv
 
 
-# @validate_arguments removed - not compatible with Pydantic v2
 def delete_lista(lista_id: int, output: Dict[str, Any]) -> bool:
+    """Delete a lista contatti, populating output dict and returning success status.
+
+    Args:
+        lista_id: ID of the list to delete
+        output: Dictionary to populate with validated results
+
+    Returns:
+        bool: True if successful, False otherwise (error in output['error'])
+    """
     class Err:
         repository_delete: bool = False
-        not_found: bool = False
 
     retv: bool = False
     result: Dict[str, Any] = {}
@@ -415,14 +507,17 @@ def delete_lista(lista_id: int, output: Dict[str, Any]) -> bool:
     try:
         success = liste_repo.delete(lista_id)
         if not success:
-            if Err.not_found:
-                error = "List not found"
-        else:
-            result["deleted"] = True
-            retv = True
+            Err.repository_delete = True
+            raise ValueError()
+        delete_result = DeleteResult(deleted=True)
+        result.update(delete_result.model_dump())
+        retv = True
+
     except Exception as e:
         if Err.repository_delete:
-            error = f"Repository error: {str(e)}"
+            error = "List not found"
+        else:
+            error = str(e) or "Unknown error"
 
     if retv:
         output.update(result)

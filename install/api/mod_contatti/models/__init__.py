@@ -4,7 +4,10 @@ from .contatto_models import (
     ContattoResponse,
     ContattoList,
     ListaContattiCreate,
-    ListaContattiResponse
+    ListaContattiResponse,
+    DeleteResult,
+    RestoreResult,
+    ListeResult
 )
 
 __all__ = [
@@ -13,5 +16,8 @@ __all__ = [
     "ContattoResponse",
     "ContattoList",
     "ListaContattiCreate",
-    "ListaContattiResponse"
+    "ListaContattiResponse",
+    "DeleteResult",
+    "RestoreResult",
+    "ListeResult"
 ]
