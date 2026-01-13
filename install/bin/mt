@@ -441,14 +441,24 @@ service_start() {
   fi
 
   info "Starting $SERVICE_NAME service..."
-  /command/s6-svc -u "/run/service/$SERVICE_NAME" 2>/dev/null || error "Failed to start service"
+  local cmd_output=$(/command/s6-svc -u "/run/service/$SERVICE_NAME" 2>&1)
 
   sleep 1
 
   if /command/s6-svstat "/run/service/$SERVICE_NAME" | grep -q "^up"; then
     success "$SERVICE_NAME started successfully"
   else
-    error "Failed to start $SERVICE_NAME"
+    printf 'ERROR: Failed to start %s\n' "$SERVICE_NAME" >&2
+    [ -n "$cmd_output" ] && echo "Command output: $cmd_output"
+
+    # Show last log lines if available
+    local log_file="/workspace/logs/${SERVICE_NAME}.log"
+    if [ -f "$log_file" ]; then
+      echo ""
+      echo "Last 10 log lines:"
+      tail -n 10 "$log_file" | sed 's/^/  /'
+    fi
+    exit 1
   fi
 }
 
@@ -463,14 +473,24 @@ service_stop() {
   fi
 
   info "Stopping $SERVICE_NAME service..."
-  /command/s6-svc -d "/run/service/$SERVICE_NAME" 2>/dev/null || error "Failed to stop service"
+  local cmd_output=$(/command/s6-svc -d "/run/service/$SERVICE_NAME" 2>&1)
 
   sleep 1
 
   if /command/s6-svstat "/run/service/$SERVICE_NAME" | grep -q "^down"; then
     success "$SERVICE_NAME stopped successfully"
   else
-    error "Failed to stop $SERVICE_NAME"
+    printf 'ERROR: Failed to stop %s\n' "$SERVICE_NAME" >&2
+    [ -n "$cmd_output" ] && echo "Command output: $cmd_output"
+
+    # Show last log lines if available
+    local log_file="/workspace/logs/${SERVICE_NAME}.log"
+    if [ -f "$log_file" ]; then
+      echo ""
+      echo "Last 10 log lines:"
+      tail -n 10 "$log_file" | sed 's/^/  /'
+    fi
+    exit 1
   fi
 }
 
@@ -508,17 +528,28 @@ service_restart() {
   info "Restarting $SERVICE_NAME service..."
 
   # Stop service
-  /command/s6-svc -d "/run/service/$SERVICE_NAME" 2>/dev/null
+  local stop_output=$(/command/s6-svc -d "/run/service/$SERVICE_NAME" 2>&1)
   sleep 1
 
   # Start service
-  /command/s6-svc -u "/run/service/$SERVICE_NAME" 2>/dev/null || error "Failed to restart service"
+  local start_output=$(/command/s6-svc -u "/run/service/$SERVICE_NAME" 2>&1)
   sleep 1
 
   if /command/s6-svstat "/run/service/$SERVICE_NAME" | grep -q "^up"; then
     success "$SERVICE_NAME restarted successfully"
   else
-    error "Failed to restart $SERVICE_NAME"
+    printf 'ERROR: Failed to restart %s\n' "$SERVICE_NAME" >&2
+    [ -n "$stop_output" ] && echo "Stop output: $stop_output"
+    [ -n "$start_output" ] && echo "Start output: $start_output"
+
+    # Show last log lines if available
+    local log_file="/workspace/logs/${SERVICE_NAME}.log"
+    if [ -f "$log_file" ]; then
+      echo ""
+      echo "Last 10 log lines:"
+      tail -n 10 "$log_file" | sed 's/^/  /'
+    fi
+    exit 1
   fi
 }
 
@@ -774,57 +805,87 @@ S6_SERVICE_DIR="/run/service"
 s6_service_start() {
   local service="$1"
   local service_path="$S6_SERVICE_DIR/$service"
-  
+
   if [ \! -d "$service_path" ]; then
     error "Service not found: $service"
   fi
-  
+
   info "Starting $service service..."
-  $S6_CMD -u "$service_path"
+  local cmd_output=$($S6_CMD -u "$service_path" 2>&1)
   sleep 1
-  
+
   if $S6_STAT "$service_path" | grep -q "^up"; then
     success "$service started successfully"
   else
-    error "Failed to start $service"
+    printf 'ERROR: Failed to start %s\n' "$service" >&2
+    [ -n "$cmd_output" ] && echo "Command output: $cmd_output"
+
+    # Show last log lines if available
+    local log_file="/workspace/logs/${service}.log"
+    if [ -f "$log_file" ]; then
+      echo ""
+      echo "Last 10 log lines:"
+      tail -n 10 "$log_file" | sed 's/^/  /'
+    fi
+    exit 1
   fi
 }
 
 s6_service_stop() {
   local service="$1"
   local service_path="$S6_SERVICE_DIR/$service"
-  
+
   if [ \! -d "$service_path" ]; then
     error "Service not found: $service"
   fi
-  
+
   info "Stopping $service service..."
-  $S6_CMD -d "$service_path"
+  local cmd_output=$($S6_CMD -d "$service_path" 2>&1)
   sleep 1
-  
+
   if $S6_STAT "$service_path" | grep -q "^down"; then
     success "$service stopped successfully"
   else
-    error "Failed to stop $service"
+    printf 'ERROR: Failed to stop %s\n' "$service" >&2
+    [ -n "$cmd_output" ] && echo "Command output: $cmd_output"
+
+    # Show last log lines if available
+    local log_file="/workspace/logs/${service}.log"
+    if [ -f "$log_file" ]; then
+      echo ""
+      echo "Last 10 log lines:"
+      tail -n 10 "$log_file" | sed 's/^/  /'
+    fi
+    exit 1
   fi
 }
 
 s6_service_restart() {
   local service="$1"
   local service_path="$S6_SERVICE_DIR/$service"
-  
+
   if [ \! -d "$service_path" ]; then
     error "Service not found: $service"
   fi
-  
+
   info "Restarting $service service..."
-  $S6_CMD -r "$service_path"
+  local cmd_output=$($S6_CMD -r "$service_path" 2>&1)
   sleep 2
-  
+
   if $S6_STAT "$service_path" | grep -q "^up"; then
     success "$service restarted successfully"
   else
-    error "Failed to restart $service"
+    printf 'ERROR: Failed to restart %s\n' "$service" >&2
+    [ -n "$cmd_output" ] && echo "Command output: $cmd_output"
+
+    # Show last log lines if available
+    local log_file="/workspace/logs/${service}.log"
+    if [ -f "$log_file" ]; then
+      echo ""
+      echo "Last 10 log lines:"
+      tail -n 10 "$log_file" | sed 's/^/  /'
+    fi
+    exit 1
   fi
 }
 

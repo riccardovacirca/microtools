@@ -146,3 +146,48 @@
 
 - aggiungere al file setup.sh l'installazione dei pacchetti apt nano e tree nel
   container di sviluppo 
+
+- la cartella /workspace/.prototype/install/api/common deve diventare una
+  libreria python denominata microtools. questa lobreria deve essere equivalente
+  alla libreria microtools c++ relativa ai microservizi con una nomenclatura
+  uniforme lo scopo è uniformare lo stile di sviluppo, di codifica e le logiche
+  usate. Dal momento che queste librerie devono rimanere aggiornate sul
+  repository git di microtools potremmo mantenere le librerie fisiche nella
+  cartella /workspace/.prototype/install/lib con due sottocartelle cpp e python
+  e creare dei link simbolici a queste cartelle:
+
+  > /workspace/.prototype/install/lib/python -> /workspace/api/microtools
+  > /workspace/.prototype/install/lib/cpp -> /workspace/service/microtools
+  
+  La compilazione della libreria cpp dovrebbe avvenire dal link simbolico e non
+  più dalla cartella .prototype come avviene adesso
+
+
+docker pull ollama/ollama:latest
+docker run -d --network hello-net -p 2377:11434 -v ollama:/root/.ollama --name ollama ollama/ollama:latest
+docker exec -it hello bash 
+curl -fsSL https://opencode.ai/install | bash
+cd /root
+cd .config/opencode
+nano opencode.json
+
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Llama 3.2 Local",
+      "options": {
+        "baseURL": "ollama:11434/v1"
+      },
+      "models": {
+        "llama3.2:1b": {
+          "name": "Llama 3.2 1B"
+        }
+      }
+    }
+  }
+}
+
+
+

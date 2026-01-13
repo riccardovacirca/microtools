@@ -1,3 +1,4 @@
 #!/bin/sh
 cd /workspace/gui
-exec npm run dev
+# Redirect stdout and stderr to log file
+exec npm run dev >> /workspace/logs/vite.log 2>&1

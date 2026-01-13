@@ -1,5 +1,4 @@
 from typing import Dict, Any
-import os
 from ..models.contatto_models import (
     ContattoCreate,
     ContattoUpdate,
@@ -11,11 +10,20 @@ from ..models.contatto_models import (
     RestoreResult,
     ListeResult
 )
-from ..repositories.contatti_repository import ContattiRepository, ListeContattiRepository
-
-db_dsn = os.getenv("DB_DSN", "DSN=hello").replace("DSN=", "")
-contatti_repo = ContattiRepository(db_dsn)
-liste_repo = ListeContattiRepository(db_dsn)
+from ..repositories.contatti_repository import (
+    repository_create_contatto,
+    repository_get_contatto_by_id,
+    repository_get_all_contatti,
+    repository_update_contatto,
+    repository_soft_delete_contatto,
+    repository_restore_contatto,
+    repository_hard_delete_contatto,
+    repository_search_contatti,
+    repository_create_lista,
+    repository_get_all_liste,
+    repository_get_lista_by_id,
+    repository_delete_lista
+)
 
 
 def create_contatto(contatto: ContattoCreate, output: Dict[str, Any]) -> bool:
@@ -37,25 +45,16 @@ def create_contatto(contatto: ContattoCreate, output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        contatto_id = contatti_repo.create(contatto)
-        if not contatto_id:
-            Err.repository_create = True
-            raise ValueError()
-        contatto_data = contatti_repo.get_by_id(contatto_id)
-        if not contatto_data:
-            Err.repository_get = True
-            raise ValueError()
+        contatto_id = repository_create_contatto(contatto)
+        contatto_data = repository_get_contatto_by_id(contatto_id)
         contatto_response = ContattoResponse(**contatto_data)
         result.update(contatto_response.model_dump())
         retv = True
 
+    except ValueError as e:
+        error = str(e)
     except Exception as e:
-        if Err.repository_create:
-            error = "Failed to create contact in repository"
-        elif Err.repository_get:
-            error = "Failed to retrieve created contact"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -83,19 +82,16 @@ def get_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        contatto_data = contatti_repo.get_by_id(contatto_id)
-        if not contatto_data:
-            Err.not_found = True
-            raise ValueError()
+        contatto_data = repository_get_contatto_by_id(contatto_id)
         contatto_response = ContattoResponse(**contatto_data)
         result.update(contatto_response.model_dump())
         retv = True
 
+    except ValueError as e:
+        Err.not_found = True
+        error = str(e)
     except Exception as e:
-        if Err.not_found:
-            error = "Contact not found"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -125,7 +121,7 @@ def get_all_contatti(page: int, page_size: int, include_deleted: bool, output: D
     error: str | None = None
 
     try:
-        contatti_data, total = contatti_repo.get_all(page, page_size, include_deleted)
+        contatti_data, total = repository_get_all_contatti(page, page_size, include_deleted)
         contatti = [ContattoResponse.model_validate(c) for c in contatti_data]
         contatti_list = ContattoList(
             total=total,
@@ -136,11 +132,10 @@ def get_all_contatti(page: int, page_size: int, include_deleted: bool, output: D
         result.update(contatti_list.model_dump(mode='json'))
         retv = True
 
+    except ValueError as e:
+        error = str(e)
     except Exception as e:
-        if Err.repository_get:
-            error = "Repository error during retrieval"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -170,25 +165,16 @@ def update_contatto(contatto_id: int, contatto: ContattoUpdate, output: Dict[str
     error: str | None = None
 
     try:
-        success = contatti_repo.update(contatto_id, contatto)
-        if not success:
-            Err.repository_update = True
-            raise ValueError()
-        contatto_data = contatti_repo.get_by_id(contatto_id)
-        if not contatto_data:
-            Err.repository_get = True
-            raise ValueError()
+        repository_update_contatto(contatto_id, contatto)
+        contatto_data = repository_get_contatto_by_id(contatto_id)
         contatto_response = ContattoResponse(**contatto_data)
         result.update(contatto_response.model_dump())
         retv = True
 
+    except ValueError as e:
+        error = str(e)
     except Exception as e:
-        if Err.repository_update:
-            error = "Contact not found or update failed"
-        elif Err.repository_get:
-            error = "Failed to retrieve updated contact"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -216,19 +202,16 @@ def soft_delete_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        success = contatti_repo.soft_delete(contatto_id)
-        if not success:
-            Err.repository_delete = True
-            raise ValueError()
+        repository_soft_delete_contatto(contatto_id)
         delete_result = DeleteResult(deleted=True)
         result.update(delete_result.model_dump())
         retv = True
 
+    except ValueError as e:
+        Err.repository_delete = True
+        error = str(e)
     except Exception as e:
-        if Err.repository_delete:
-            error = "Contact not found or already deleted"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -256,19 +239,16 @@ def restore_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        success = contatti_repo.restore(contatto_id)
-        if not success:
-            Err.repository_restore = True
-            raise ValueError()
+        repository_restore_contatto(contatto_id)
         restore_result = RestoreResult(restored=True)
         result.update(restore_result.model_dump())
         retv = True
 
+    except ValueError as e:
+        Err.repository_restore = True
+        error = str(e)
     except Exception as e:
-        if Err.repository_restore:
-            error = "Contact not found or not deleted"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -296,19 +276,16 @@ def hard_delete_contatto(contatto_id: int, output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        success = contatti_repo.hard_delete(contatto_id)
-        if not success:
-            Err.repository_delete = True
-            raise ValueError()
+        repository_hard_delete_contatto(contatto_id)
         delete_result = DeleteResult(deleted=True)
         result.update(delete_result.model_dump())
         retv = True
 
+    except ValueError as e:
+        Err.repository_delete = True
+        error = str(e)
     except Exception as e:
-        if Err.repository_delete:
-            error = "Contact not found"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -338,7 +315,7 @@ def search_contatti(query: str, page: int, page_size: int, output: Dict[str, Any
     error: str | None = None
 
     try:
-        contatti_data, total = contatti_repo.search(query, page, page_size)
+        contatti_data, total = repository_search_contatti(query, page, page_size)
         contatti = [ContattoResponse(**c) for c in contatti_data]
         contatti_list = ContattoList(
             total=total,
@@ -349,11 +326,11 @@ def search_contatti(query: str, page: int, page_size: int, output: Dict[str, Any
         result.update(contatti_list.model_dump())
         retv = True
 
+    except ValueError as e:
+        Err.repository_search = True
+        error = str(e)
     except Exception as e:
-        if Err.repository_search:
-            error = "Repository error during search"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -382,25 +359,16 @@ def create_lista(lista: ListaContattiCreate, output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        lista_id = liste_repo.create(lista.nome, lista.descrizione)
-        if not lista_id:
-            Err.repository_create = True
-            raise ValueError()
-        lista_data = liste_repo.get_by_id(lista_id)
-        if not lista_data:
-            Err.repository_get = True
-            raise ValueError()
+        lista_id = repository_create_lista(lista.nome, lista.descrizione)
+        lista_data = repository_get_lista_by_id(lista_id)
         lista_response = ListaContattiResponse(**lista_data)
         result.update(lista_response.model_dump())
         retv = True
 
+    except ValueError as e:
+        error = str(e)
     except Exception as e:
-        if Err.repository_create:
-            error = "Failed to create list in repository"
-        elif Err.repository_get:
-            error = "Failed to retrieve created list"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -427,17 +395,16 @@ def get_all_liste(output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        liste_data = liste_repo.get_all()
+        liste_data = repository_get_all_liste()
         liste = [ListaContattiResponse(**l) for l in liste_data]
         liste_result = ListeResult(liste=liste)
         result.update(liste_result.model_dump())
         retv = True
 
+    except ValueError as e:
+        error = str(e)
     except Exception as e:
-        if Err.repository_get:
-            error = "Repository error during retrieval"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -465,19 +432,16 @@ def get_lista(lista_id: int, output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        lista_data = liste_repo.get_by_id(lista_id)
-        if not lista_data:
-            Err.not_found = True
-            raise ValueError()
+        lista_data = repository_get_lista_by_id(lista_id)
         lista_response = ListaContattiResponse(**lista_data)
         result.update(lista_response.model_dump())
         retv = True
 
+    except ValueError as e:
+        Err.not_found = True
+        error = str(e)
     except Exception as e:
-        if Err.not_found:
-            error = "List not found"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)
@@ -505,19 +469,16 @@ def delete_lista(lista_id: int, output: Dict[str, Any]) -> bool:
     error: str | None = None
 
     try:
-        success = liste_repo.delete(lista_id)
-        if not success:
-            Err.repository_delete = True
-            raise ValueError()
+        repository_delete_lista(lista_id)
         delete_result = DeleteResult(deleted=True)
         result.update(delete_result.model_dump())
         retv = True
 
+    except ValueError as e:
+        Err.repository_delete = True
+        error = str(e)
     except Exception as e:
-        if Err.repository_delete:
-            error = "List not found"
-        else:
-            error = str(e) or "Unknown error"
+        error = f"Unexpected error: {str(e)}"
 
     if retv:
         output.update(result)

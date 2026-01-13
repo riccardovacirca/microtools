@@ -6,4 +6,5 @@ if [ -f /workspace/.env ]; then
   set +a
 fi
 cd /workspace/services/mod_status
-exec ./bin/status
+# Redirect stdout and stderr to log file
+exec ./bin/status >> /workspace/logs/mod_status.log 2>&1

@@ -1,2 +1,4 @@
 #!/bin/sh
-exec /usr/bin/redis-server /etc/redis/redis.conf --daemonize no
+# Redirect stdout and stderr to log file
+exec /usr/bin/redis-server /etc/redis/redis.conf --daemonize no \
+  >> /workspace/logs/redis.log 2>&1

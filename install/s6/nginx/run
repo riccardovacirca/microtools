@@ -1,2 +1,3 @@
 #!/bin/sh
-exec nginx -g "daemon off;"
+# Redirect stdout and stderr to log file
+exec nginx -g "daemon off;" >> /workspace/logs/nginx.log 2>&1

@@ -8,4 +8,6 @@ if [ -f /workspace/.env ]; then
     set +a
 fi
 
-exec /usr/local/bin/uvicorn main:app --host 127.0.0.1 --port 8000
+# Redirect stdout and stderr to log file
+exec /usr/local/bin/uvicorn main:app --host 127.0.0.1 --port 8000 \
+  >> /workspace/logs/uvicorn.log 2>&1
