@@ -9,5 +9,5 @@ if [ -f /workspace/.env ]; then
 fi
 
 # Redirect stdout and stderr to log file
-exec /usr/local/bin/uvicorn main:app --host 127.0.0.1 --port 8000 \
+exec /usr/local/bin/uvicorn main:app --host 127.0.0.1 --port 8000 --reload \
   >> /workspace/logs/uvicorn.log 2>&1
