@@ -1,0 +1,183 @@
+{
+  "dsl_name": "microtools_framework_module",
+  "version": "1.0",
+  "description": "DSL per la struttura di un modulo del framework Microtools",
+
+  "definition": {
+    "module": "Unita funzionale autonoma che attraversa tutti i livelli dell'architettura Microtools",
+    "components": ["api", "gui", "microservices", "database"],
+    "autonomy": "Ogni modulo e indipendente, esportabile e importabile"
+  },
+
+  "structure": {
+    "api": {
+      "location": "/workspace/api/mod_<MODULE_NAME>/",
+      "required": true,
+      "description": "Componente API Python/FastAPI",
+      "contents": {
+        "routes.py": "HTTP routing, delega ai services",
+        "adapters/": "Un adapter per ogni microservizio del modulo",
+        "services/": "Business logic e orchestrazione",
+        "models/": "Validazione Pydantic input/output",
+        "repositories/": "Accesso database (opzionale)"
+      },
+      "dsl_references": {
+        "module_architecture": "python_module.json",
+        "routes": "python_module_route.json",
+        "services": "python_module_service.json",
+        "adapters": "python_module_adapter.json",
+        "repositories": "python_module_repository.json",
+        "python_classes": "python_class.json"
+      }
+    },
+    "gui": {
+      "location": "/workspace/gui/src/mod_<MODULE_NAME>/",
+      "required": false,
+      "description": "Componente frontend Svelte",
+      "contents": {
+        "index.html": "Entry point per sviluppo isolato del modulo",
+        "Layout.svelte": "Layout principale del modulo",
+        "*Component.svelte": "Componenti con logica applicativa"
+      },
+      "dsl_references": {
+        "svelte_gui": "Sezione microtools_svelte_gui in PROJECT.md"
+      }
+    },
+    "microservices": {
+      "location": "/workspace/services/mod_<MODULE_NAME>/",
+      "required": false,
+      "description": "Uno o piu microservizi C++",
+      "contents": {
+        "CMakeLists.txt": "Configurazione build CMake",
+        "src/": "Codice sorgente C++",
+        "include/": "Header files con documentazione Doxygen",
+        ".env.example": "Template variabili ambiente"
+      },
+      "dsl_references": {
+        "cpp_classes": "cpp_class.json",
+        "cpp_style": "Sezione microtools_cpp_style in PROJECT.md"
+      }
+    },
+    "database": {
+      "location": "/workspace/database/<MODULE_NAME>/",
+      "required": false,
+      "description": "Schema SQL per il modulo",
+      "contents": {
+        "sqlite3/": "Schema per SQLite3",
+        "mariadb/": "Schema per MariaDB",
+        "postgres/": "Schema per PostgreSQL",
+        "*_install.sql": "Script installazione",
+        "*_uninstall.sql": "Script rimozione"
+      }
+    }
+  },
+
+  "microservice_binding": {
+    "cardinality": {
+      "microservice_to_module": "N:1 - ogni microservizio appartiene a un solo modulo",
+      "module_to_microservices": "1:N - un modulo puo contenere piu microservizi"
+    },
+    "adapter_rule": "Ogni microservizio e esposto tramite un adapter dedicato in api/mod_<MODULE_NAME>/adapters/",
+    "no_sharing": "I microservizi non sono mai condivisi tra moduli diversi",
+    "isolation": "Se piu moduli necessitano funzionalita simili, duplicare il microservizio o implementare logica condivisa a livello API Python"
+  },
+
+  "naming_conventions": {
+    "module_name": {
+      "pattern": "mod_<name>",
+      "style": "lowercase_with_underscores",
+      "examples": ["mod_status", "mod_alerts", "mod_users"]
+    },
+    "api_entities": {
+      "pattern": "<function>_<entity>.py",
+      "rule": "Il nome riflette la funzione specifica, non il nome del modulo",
+      "examples": {
+        "good": ["info_service.py", "alert_adapter.py", "user_repository.py"],
+        "bad": ["status_service.py (troppo generico)", "mod_status_adapter.py (ridondante)"]
+      }
+    },
+    "gui_entities": {
+      "layouts": "Layout.svelte o <Name>Layout.svelte",
+      "components": "<Name>Component.svelte"
+    },
+    "microservice_entities": {
+      "env_vars": "MICROSERVICE_MOD_<MODULE_NAME>_<PARAM>",
+      "examples": ["MICROSERVICE_MOD_STATUS_HOST", "MICROSERVICE_MOD_STATUS_PORT"]
+    }
+  },
+
+  "data_flow": {
+    "request_path": "Gateway -> API -> Route -> Service -> Adapter -> Microservice",
+    "response_path": "Microservice -> Adapter -> Service -> Route -> Gateway",
+    "database_path": "Route -> Service -> Repository -> Database",
+    "gui_path": "GUI -> Gateway -> API"
+  },
+
+  "configuration": {
+    "env_file": "/workspace/.env",
+    "module_env_example": "/workspace/services/mod_<MODULE_NAME>/.env.example",
+    "prefixes": {
+      "MICROSERVICE_": "Variabili per microservizi C++",
+      "API_": "Variabili per livello API Python",
+      "DB_": "Variabili per database"
+    }
+  },
+
+  "module_lifecycle": {
+    "export": {
+      "command": "mt module export -n <module_name>",
+      "output": "/workspace/dist/modules/<module_name>.tar.gz",
+      "includes": ["api", "database", "gui", "services", "module.json"]
+    },
+    "import": {
+      "command": "mt module import -n <module_name> [--force]",
+      "source": "/workspace/dist/modules/<module_name>.tar.gz",
+      "post_actions": ["Installazione dipendenze Python", "Build microservizio C++", "Installazione schema database"]
+    }
+  },
+
+  "minimal_module": {
+    "description": "Modulo minimo con solo componente API",
+    "required": ["api/mod_<MODULE_NAME>/routes.py", "api/mod_<MODULE_NAME>/services/"],
+    "use_case": "Modulo che espone solo logica Python senza microservizi, GUI o database"
+  },
+
+  "full_module": {
+    "description": "Modulo completo con tutti i componenti",
+    "structure": [
+      "api/mod_<MODULE_NAME>/",
+      "gui/src/mod_<MODULE_NAME>/",
+      "services/mod_<MODULE_NAME>/",
+      "database/<MODULE_NAME>/"
+    ],
+    "use_case": "Modulo autonomo con frontend, backend, microservizi e persistenza"
+  },
+
+  "forbidden_patterns": [
+    "Microservizi condivisi tra moduli",
+    "Dipendenze trasversali tra microservizi di moduli diversi",
+    "Adapter che accedono a microservizi di altri moduli",
+    "GUI che chiama direttamente microservizi (deve passare per API)",
+    "Repository in microservizi C++ (accesso DB solo via API Python)"
+  ],
+
+  "related_dsl": {
+    "base_path": "/workspace/.prototype/install/docs/dsl/",
+    "api_component": {
+      "python_module": ["python_module.json", "python_module.md"],
+      "routes": ["python_module_route.json", "python_module_route.md"],
+      "services": ["python_module_service.json", "python_module_service.md"],
+      "adapters": ["python_module_adapter.json", "python_module_adapter.md"],
+      "repositories": ["python_module_repository.json", "python_module_repository.md"],
+      "python_classes": ["python_class.json", "python_class.md"]
+    },
+    "gui_component": {
+      "svelte_gui": "PROJECT.md sezione microtools_svelte_gui"
+    },
+    "microservices_component": {
+      "cpp_classes": ["cpp_class.json", "cpp_class.md"],
+      "cpp_style": "PROJECT.md sezione microtools_cpp_style"
+    },
+    "project_documentation": "/workspace/.prototype/PROJECT.md"
+  }
+}

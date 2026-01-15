@@ -1048,7 +1048,8 @@ DSL GUI:
 **Principi architetturali:**
 
 * Microservizi **non condivisi** tra moduli
-* Relazione **1:1 tra modulo e microservizio**
+* Relazione **N:1 tra microservizi e modulo**: ogni microservizio appartiene a un solo modulo, ma un modulo può contenere più microservizi
+* Ogni microservizio è esposto tramite un adapter dedicato nella componente API del modulo
 * Nessuna dipendenza trasversale tra microservizi
 
 **Catena di accesso:**
@@ -1076,10 +1077,10 @@ Gateway → API → Route → Model → Service → Adapter → Microservice
 
   "architecture": {
     "module_microservice_binding": {
-      "principle": "Ogni microservizio è incapsulato in un modulo specifico",
+      "principle": "Ogni microservizio appartiene a un solo modulo, ma un modulo può contenere più microservizi",
       "rule": "I microservizi C++ non sono mai condivisi direttamente tra più moduli",
       "flow": "Gateway -> API -> Route -> Model -> Service -> Adapter -> Microservice",
-      "module_equals_microservice": "Il modulo coincide con il microservizio",
+      "adapter_per_microservice": "Ogni microservizio del modulo è esposto tramite un adapter dedicato nella componente API",
       "shared_logic": "Se più moduli necessitano di funzionalità simili, duplicare il microservizio per ogni modulo o implementare la logica condivisa a livello API Python",
       "rationale": "Garantisce autonomia del modulo, esportabilità e assenza di dipendenze trasversali"
     }
