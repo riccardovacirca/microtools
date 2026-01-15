@@ -1,0 +1,52 @@
+{
+  "service_style": "explicit_async_service",
+  "interface": {
+    "async_only": true,
+    "framework_types_allowed": false,
+    "return_type": "dict"
+  },
+  "architecture": {
+    "service_role": "orchestration",
+    "external_access": "adapters_for_external_http",
+    "cache_management": "direct_redis_allowed",
+    "validation": "models_only",
+    "response_normalization": "response_model_mandatory"
+  },
+  "data_flow": {
+    "source": [
+      "adapter",
+      "redis_cache"
+    ],
+    "validation": "pydantic_model",
+    "output": "response_model"
+  },
+  "error_handling": {
+    "leak_exceptions": false,
+    "strategy": "structured_response",
+    "required_fields": [
+      "err",
+      "log",
+      "out"
+    ]
+  },
+  "response_model_schema": {
+    "err": "bool - true if error, false if success",
+    "log": "str|None - error message if err=true, null if success",
+    "out": "Any|None - data if success, null if error",
+    "function_signature": "def get(err: bool, log: Optional[str], out: Optional[Any]) -> dict",
+    "no_default_values": "all parameters required, no default values allowed"
+  },
+  "function_parameters": {
+    "rule": "no_default_values",
+    "rationale": "explicit over implicit - all parameters must be provided explicitly",
+    "forbidden": "def func(param1, param2=None, param3=default_value)",
+    "required": "def func(param1, param2, param3) - all parameters explicit"
+  },
+  "forbidden": [
+    "HTTPException",
+    "Response",
+    "Request",
+    "raw_adapter_output",
+    "default_parameter_values"
+  ]
+}

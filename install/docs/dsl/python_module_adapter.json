@@ -1,0 +1,41 @@
+{
+  "adapter_style": "explicit_async_adapter",
+  "interface": {
+    "async_only": true,
+    "return_type": "dict",
+    "framework_types_allowed": false
+  },
+  "responsibility": {
+    "role": "io_only",
+    "allow_business_logic": false,
+    "allow_validation": false,
+    "allow_response_shaping": false
+  },
+  "data": {
+    "output": "raw_external_data",
+    "normalization": false,
+    "defaults_allowed": false
+  },
+  "errors": {
+    "strategy": "propagate",
+    "wrap_errors": false,
+    "retry": false
+  },
+  "config": {
+    "source": "environment_variables",
+    "hardcoded_values": false
+  },
+  "function_parameters": {
+    "rule": "no_default_values",
+    "rationale": "explicit over implicit - all parameters must be provided explicitly",
+    "forbidden": "def func(param1, param2=None)",
+    "required": "def func(param1, param2)"
+  },
+  "forbidden": [
+    "pydantic",
+    "response_model",
+    "service_layer_imports",
+    "retry_logic",
+    "default_parameter_values"
+  ]
+}

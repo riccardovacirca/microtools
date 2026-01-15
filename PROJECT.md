@@ -630,6 +630,13 @@ L'entità API di un modulo ha la seguente struttura. La logica è definita nei
 services. routes.py, repositories, adapters e models sono di supporto ai
 services.
 
+**DSL di riferimento:**
+- Architettura modulo: `/workspace/.prototype/install/docs/dsl/python_module.json` e `.md`
+- Adapters: `/workspace/.prototype/install/docs/dsl/python_module_adapter.json` e `.md`
+- Services: `/workspace/.prototype/install/docs/dsl/python_module_service.json` e `.md`
+- Routes: `/workspace/.prototype/install/docs/dsl/python_module_route.json` e `.md`
+- Repositories: `/workspace/.prototype/install/docs/dsl/python_module_repository.json` e `.md`
+
 Naming: I nomi di services, models, repositories e adapters devono riflettere
 la funzione specifica svolta, non il nome del modulo. Usare il pattern
 <FUNCTION_NAME>_<entity_type>.py dove FUNCTION_NAME descrive la funzionalità
@@ -639,9 +646,15 @@ funzione e si connette internamente al microservizio C++ che mantiene il nome
 del modulo.
 
 Esempio: Nel modulo mod_status, il service che recupera info applicazione si
-chiama info_service.py (non status_service.py), con info_models.py,
+chiama info_service.py (non status_service.py), con info_model.py,
 info_adapter.py, ecc. L'adapter info_adapter.py si connette al microservizio
 mod_status.
+
+Convenzioni naming:
+- Cartelle: plurale (adapters/, services/, models/, repositories/)
+- File: singolare (<entity>_adapter.py, <entity>_service.py)
+- Funzioni: verbi semplici (get, set, create per services/adapters; select, insert, update per repositories)
+- Namespace: <file>.<function> (info_service.get(), user_repository.select())
 
 ```
 /workspace/api/mod_<MODULE_NAME>/
@@ -649,7 +662,8 @@ mod_status.
 |   |-- <FUNCTION_NAME>_adapter.py
 |   '-- ...
 |-- models/
-|   |-- <FUNCTION_NAME>_models.py
+|   |-- <FUNCTION_NAME>_model.py
+|   |-- response_model.py
 |   '-- ...
 |-- repositories/
 |   |-- <FUNCTION_NAME>_repository.py
@@ -663,8 +677,16 @@ mod_status.
 
 #### Service
 
+**DSL:** `/workspace/.prototype/install/docs/dsl/python_module_service.json` e `.md`
+
 Questa entità applicativa usa due tipi di funzione: funzioni applicative e
 funzioni helper.
+
+**Responsabilità:**
+- Orchestrazione tra adapters, repositories e models
+- Business logic e gestione connessioni database
+- Gestione errori e wrapping risposte tramite response_model
+- Tutti i service devono restituire `response_model.get(err, log, out)`
 
 #### Models
 
@@ -739,20 +761,85 @@ class OrderResult(BaseModel):
 
 #### Routes
 
-```
-Da documentare...
-Al momento non viene imposta nessula logica di dominio
+**DSL:** `/workspace/.prototype/install/docs/dsl/python_module_route.json` e `.md`
+
+**Responsabilità:**
+- HTTP layer only (stile servlet-like)
+- Delega logica ai services
+- Usa JSONResponse esplicito con status code
+- Gestione errori tramite check del campo `err` nella risposta
+- Request parameter solo se necessario (es. POST con `data = await request.json()`)
+
+**Pattern:**
+```python
+from fastapi import APIRouter
+from fastapi.responses import JSONResponse
+from .services import info_service
+
+router = APIRouter()
+
+@router.get("/info")
+async def info_handler():
+    """Endpoint info status applicazione."""
+    data = await info_service.get()
+    if data["err"]:
+        return JSONResponse(data, 503)
+    return JSONResponse(data, 200)
 ```
 
 #### Repositories
 
-I repositories vengono implementati mediante funzioni helper
+**DSL:** `/workspace/.prototype/install/docs/dsl/python_module_repository.json` e `.md`
+
+**Responsabilità:**
+- Solo esecuzione SQL, nessuna business logic
+- Usa classi DB e DBConnPool
+- Riceve istanza DB già acquisita dal service
+- Funzioni: select, select_all, insert, update, delete
+- Transazioni: suffix `_tx` per funzioni multi-query
+
+**Pattern:**
+```python
+from api.utils.DB import DB, Record, Recordset
+
+def select(db: DB, id: int) -> Record:
+    """Select user by ID."""
+    sql = "SELECT * FROM users WHERE id = ?"
+    return db.select(sql, (id,))
+
+def insert(db: DB, data: dict) -> int:
+    """Insert user and return ID."""
+    sql = "INSERT INTO users (name, email) VALUES (?, ?)"
+    return db.insert(sql, (data["name"], data["email"]))
+```
 
 #### Adapters
 
-```
-Da documentare...
-Al momento non viene imposta nessula logica di dominio
+**DSL:** `/workspace/.prototype/install/docs/dsl/python_module_adapter.json` e `.md`
+
+**Responsabilità:**
+- Solo I/O verso servizi esterni HTTP
+- Nessuna business logic, validazione o normalizzazione
+- Restituisce dati raw dal servizio esterno
+- Config tramite variabili ambiente
+
+**Pattern:**
+```python
+import os
+import httpx
+from typing import Dict, Any
+
+# Config microservizio C++
+MOD_STATUS_HOST = os.getenv("MOD_STATUS_HOST", "127.0.0.1")
+MOD_STATUS_PORT = os.getenv("MOD_STATUS_PORT", "9001")
+MOD_STATUS_URL = f"http://{MOD_STATUS_HOST}:{MOD_STATUS_PORT}"
+
+async def get() -> Dict[str, Any]:
+    """Recupera info status da microservizio C++."""
+    async with httpx.AsyncClient() as client:
+        retv = await client.get(f"{MOD_STATUS_URL}/api/status/info")
+        retv.raise_for_status()
+        return retv.json()
 ```
 
 #### Workflow

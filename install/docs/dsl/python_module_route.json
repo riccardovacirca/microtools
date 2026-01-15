@@ -1,0 +1,54 @@
+{
+  "api_style": "fastapi_explicit_starlette_servlet",
+  "routing": {
+    "router": "APIRouter",
+    "registration": "decorators_only",
+    "allow_global_routes": false
+  },
+  "handlers": {
+    "async_only": true,
+    "request_usage": {
+      "import_only_if_used": true,
+      "use_for_body_parsing": "request.json()",
+      "servlet_style": true
+    },
+    "allow_depends": false,
+    "allow_pydantic_in_signature": false
+  },
+  "architecture": {
+    "handler_logic": "delegate_to_services",
+    "service_return_type": "response_model_dict",
+    "handler_responsibility": "http_layer_only"
+  },
+  "responses": {
+    "type": "JSONResponse",
+    "parameters": "positional_allowed",
+    "status_code": "explicit_required",
+    "allow_http_exception": false
+  },
+  "error_handling": {
+    "strategy": "check_err_flag",
+    "success_status": 200,
+    "error_status": 503,
+    "return_format": "complete_response_model"
+  },
+  "response_structure": {
+    "always_return": "complete_response_model_dict",
+    "fields": ["err", "log", "out"],
+    "never_extract_fields": true
+  },
+  "function_parameters": {
+    "rule": "no_default_values",
+    "rationale": "explicit over implicit - all parameters must be provided explicitly",
+    "forbidden": "async def handler(request: Request = None)",
+    "required": "async def handler(request: Request)"
+  },
+  "forbidden": [
+    "response_model_decorator",
+    "implicit_body_parsing_via_pydantic",
+    "implicit_status_codes",
+    "HTTPException",
+    "unused_imports",
+    "default_parameter_values"
+  ]
+}

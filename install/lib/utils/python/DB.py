@@ -58,13 +58,13 @@ class DB:
     """Check if connected to database."""
     return self.connection is not None and self.pool is not None
   
-  def query(self, sql: str, params: Optional[tuple] = None) -> int:
+  def query(self, sql: str, params: Optional[tuple]) -> int:
     """
     Execute a SQL query that modifies data.
 
     Args:
       sql: SQL query (INSERT, UPDATE, DELETE)
-      params: Query parameters
+      params: Query parameters or None
 
     Returns:
       Number of affected rows
@@ -80,13 +80,13 @@ class DB:
       self._last_rowcount = cursor.rowcount
       return cursor.rowcount
 
-  def insert(self, sql: str, params: Optional[tuple] = None) -> int:
+  def insert(self, sql: str, params: Optional[tuple]) -> int:
     """
     Execute INSERT query and return last inserted ID.
 
     Args:
       sql: SQL INSERT query
-      params: Query parameters
+      params: Query parameters or None
 
     Returns:
       Last inserted row ID
@@ -103,74 +103,74 @@ class DB:
       row = cursor.fetchone()
       return row[0] if row else 0
   
-  def select(self, sql: str, params: Optional[tuple] = None) -> Record:
+  def select(self, sql: str, params: Optional[tuple]) -> Record:
     """
     Execute SELECT query and return first row.
-    
+
     Args:
       sql: SQL SELECT query
-      params: Query parameters
-    
+      params: Query parameters or None
+
     Returns:
       First record as Record
     """
     if not self.is_connected():
       raise RuntimeError("Not connected to database")
-    
+
     with self._get_cursor() as cursor:
       if params:
         cursor.execute(sql, params)
       else:
         cursor.execute(sql)
-      
+
       row = cursor.fetchone()
       if not row:
         return Record()
-      
+
       return self._row_to_dict(cursor, row)
   
-  def select_all(self, sql: str, params: Optional[tuple] = None) -> Recordset:
+  def select_all(self, sql: str, params: Optional[tuple]) -> Recordset:
     """
     Execute SELECT query and return all rows.
-    
+
     Args:
       sql: SQL SELECT query
-      params: Query parameters
-    
+      params: Query parameters or None
+
     Returns:
       All records as Recordset
     """
     if not self.is_connected():
       raise RuntimeError("Not connected to database")
-    
+
     with self._get_cursor() as cursor:
       if params:
         cursor.execute(sql, params)
       else:
         cursor.execute(sql)
-      
+
       rows = cursor.fetchall()
       return self._rows_to_list(cursor, rows)
   
-  def cursor_open(self, sql: str, params: Optional[tuple] = None):
+  def cursor_open(self, sql: str, params: Optional[tuple]):
     """
     Open cursor for iterating through query results.
-    
+
     Args:
       sql: SQL SELECT query
-      params: Query parameters
+      params: Query parameters or None
     """
     if not self.is_connected():
       raise RuntimeError("Not connected to database")
-    
+
     self.cursor_close()  # Close any existing cursor
-    
+
     self.cursor = self.connection.cursor()
     if params:
       self.cursor.execute(sql, params)
     else:
       self.cursor.execute(sql)
-    
+
     self._cursor_result = self.cursor.fetchall()
     self.cursor_first_call = True
     self.cursor_has_data = len(self._cursor_result) > 0

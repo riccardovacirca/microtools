@@ -7,11 +7,11 @@ class Env:
 
   _loaded = False
 
-  def __init__(self, env_path: str = "/workspace/.env"):
+  def __init__(self, env_path: str):
     """Initialize Env handler and load .env file.
 
     Args:
-      env_path: Path to .env file (default: /workspace/.env)
+      env_path: Path to .env file
     """
     if not Env._loaded:
       self._load_env_file(env_path)
@@ -43,7 +43,7 @@ class Env:
     """Get all environment variables as dictionary."""
     return dict(os.environ)
   
-  def get(self, key: str, default: str = "") -> str:
+  def get(self, key: str, default: str) -> str:
     """Get value of specific environment variable."""
     value = os.getenv(key, default)
     # Convert to string if not already

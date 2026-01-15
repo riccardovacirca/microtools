@@ -8,16 +8,16 @@ from .Env import Env
 class DBConnPool:
   """SQLAlchemy connection pool manager."""
   
-  def __init__(self, driver: str = None, env=None, **config):
+  def __init__(self, driver: Optional[str], env, **config):
     """
     Initialize connection pool.
-    
+
     Args:
-      driver: Database driver (sqlite3|mariadb|pgsql, auto-detect if None)
+      driver: Database driver (sqlite3|mariadb|pgsql, None for auto-detect)
       env: Env instance for configuration
       **config: Pool configuration parameters
     """
-    self.env = env or Env()
+    self.env = env
     self.driver = self._detect_driver(driver)
     self.config = {
       "pool_size": int(self.env.get("DB_POOL_SIZE", config.get("pool_size", 5))),

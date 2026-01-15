@@ -1,10 +1,8 @@
+
 from pydantic import BaseModel, Field
 
-class InfoResponse(BaseModel):
-    """Application status information from database.
-
-    Contains application version and metadata from app_status table.
-    """
+class InfoModel(BaseModel):
+    """Dati status applicazione."""
     id: int = Field(..., ge=1)
     version: str = Field(..., min_length=1)
     created_at: str = Field(..., min_length=1)
@@ -12,3 +10,7 @@ class InfoResponse(BaseModel):
 
     class Config:
         extra = "allow"
+
+def get(data: dict) -> InfoModel:
+    """Valida e restituisce InfoModel."""
+    return InfoModel(**data)

@@ -1,27 +1,15 @@
-"""Adapter for integration with mod_status C++ microservice.
-
-This adapter handles HTTP communication with the external C++ service
-and translates responses into Python dictionaries.
-"""
 import os
 import httpx
 from typing import Dict, Any
 
+# Config microservizio C++
 MOD_STATUS_HOST = os.getenv("MOD_STATUS_HOST", "127.0.0.1")
 MOD_STATUS_PORT = os.getenv("MOD_STATUS_PORT", "9001")
 MOD_STATUS_URL = f"http://{MOD_STATUS_HOST}:{MOD_STATUS_PORT}"
 
-
-async def get_runtime_info() -> Dict[str, Any]:
-    """Fetches runtime information from mod_status C++ microservice.
-
-    Returns:
-        Dict[str, Any]: Runtime information including version, uptime, and configuration
-
-    Raises:
-        httpx.HTTPError: If the C++ service is unreachable or returns an error
-    """
+async def get() -> Dict[str, Any]:
+    """Recupera info status da microservizio C++."""
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{MOD_STATUS_URL}/api/status/info")
-        response.raise_for_status()
-        return response.json()
+        retv = await client.get(f"{MOD_STATUS_URL}/api/status/info")
+        retv.raise_for_status()
+        return retv.json()

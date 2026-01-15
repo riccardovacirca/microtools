@@ -1,0 +1,146 @@
+{
+  "module_style": "layered_servlet_architecture",
+  "structure": {
+    "directories": {
+      "naming": "plural",
+      "required": [
+        "adapters",
+        "services",
+        "models"
+      ],
+      "optional": [
+        "repositories"
+      ]
+    },
+    "files": {
+      "naming": "singular",
+      "pattern": "<entity>_<layer>.py",
+      "examples": [
+        "info_adapter.py",
+        "info_service.py",
+        "info_model.py"
+      ]
+    },
+    "root_files": [
+      "routes.py",
+      "__init__.py"
+    ]
+  },
+  "naming_conventions": {
+    "directories": "plural (adapters, services, models, repositories)",
+    "files": "singular (info_adapter.py, user_repository.py, not infos_adapter.py)",
+    "functions": "simple verbs (get, set, delete, update, select, insert)",
+    "namespace_usage": "file_name.function_name (info_adapter.get, user_repository.select)",
+    "layer_specific": {
+      "services_adapters": "get, set, create, update, delete",
+      "repositories": "select, select_all, insert, update, delete"
+    },
+    "avoid": [
+      "get_info",
+      "get_data",
+      "fetch_info",
+      "retrieve_data",
+      "find_by_id",
+      "save_user"
+    ],
+    "rationale": "Namespace provides context, function name stays simple"
+  },
+  "function_parameters": {
+    "rule": "no_default_values",
+    "rationale": "explicit over implicit - prevents arbitrary usage patterns",
+    "forbidden": "def func(a, b=None, c=default_value)",
+    "required": "def func(a, b, c) - all parameters explicit and required"
+  },
+  "layer_relationships": {
+    "flow": "routes -> services -> (adapters | repositories) + models",
+    "routes": {
+      "imports": ["services"],
+      "calls": "service.get()",
+      "responsibility": "HTTP layer only"
+    },
+    "services": {
+      "imports": ["adapters", "repositories", "models", "response_model"],
+      "calls": [
+        "adapter.get() - for external HTTP",
+        "repository.select(db, id) - for database",
+        "model.get(data)",
+        "response_model.get(err, log, out)"
+      ],
+      "responsibility": "orchestration + business logic + connection management"
+    },
+    "adapters": {
+      "imports": ["httpx", "external_libs"],
+      "calls": "external HTTP services",
+      "responsibility": "I/O only, no logic"
+    },
+    "repositories": {
+      "imports": ["DB", "Record", "Recordset"],
+      "calls": "db.select(), db.insert(), db.query()",
+      "responsibility": "SQL execution only, no logic"
+    },
+    "models": {
+      "imports": ["pydantic"],
+      "responsibility": "validation only"
+    }
+  },
+  "import_patterns": {
+    "style": "namespace_import",
+    "routes": "from .services import info_service",
+    "services": "from ..adapters import info_adapter; from ..repositories import user_repository; from ..models import info_model, response_model",
+    "usage": "info_service.get(), info_adapter.get(), user_repository.select(db, id), info_model.get(data)",
+    "forbidden": [
+      "from .services.info_service import get",
+      "from ..adapters.info_adapter import *",
+      "from ..repositories import user_repository in routes"
+    ]
+  },
+  "data_flow": {
+    "external_http": "routes -> services -> adapters -> external_system",
+    "database": "routes -> services -> repositories -> database",
+    "response": "data source -> (adapters | repositories) -> services (validate via models) -> services (wrap via response_model) -> routes (JSONResponse)",
+    "validation_point": "services layer only",
+    "error_handling_point": "services layer only",
+    "connection_management": "services layer only"
+  },
+  "response_model": {
+    "mandatory": true,
+    "location": "models/response_model.py",
+    "usage": "all services must return response_model.get()",
+    "structure": {
+      "err": "bool",
+      "log": "str|None",
+      "out": "Any|None"
+    }
+  },
+  "function_naming": {
+    "services_adapters": {
+      "create": "create",
+      "read": "get",
+      "update": "update",
+      "delete": "delete"
+    },
+    "repositories": {
+      "create": "insert",
+      "read_one": "select",
+      "read_all": "select_all",
+      "update": "update",
+      "delete": "delete",
+      "transactions": "verb + _tx suffix"
+    },
+    "namespace_examples": [
+      "user_service.get() - not user_service.get_user()",
+      "user_service.create() - not user_service.create_user()",
+      "cache_adapter.set() - not cache_adapter.set_value()",
+      "user_repository.select(db, id) - not user_repository.get_user(db, id)",
+      "user_repository.insert(db, data) - not user_repository.save_user(db, data)",
+      "order_repository.create_with_items_tx(db, order, items) - transactional"
+    ]
+  },
+  "forbidden_patterns": {
+    "circular_imports": "no adapter importing service, no model importing adapter, no repository importing service",
+    "direct_access_from_routes": "routes must never import adapters or repositories directly",
+    "bypassing_response_model": "services must never return raw data without response_model",
+    "verbose_function_names": "no get_user_by_id, find_by_email, save_user - use simple verbs with parameters",
+    "connection_management_in_repository": "repositories must never manage DB connections, only receive DB instance"
+  }
+}

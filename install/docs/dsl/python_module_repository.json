@@ -1,0 +1,112 @@
+{
+  "repository_style": "explicit_db_repository",
+  "structure": {
+    "location": "repositories/",
+    "naming": "singular",
+    "pattern": "<entity>_repository.py",
+    "examples": [
+      "user_repository.py",
+      "order_repository.py",
+      "product_repository.py"
+    ]
+  },
+  "naming_conventions": {
+    "functions": "simple verbs matching DB operations",
+    "crud": {
+      "create": "insert",
+      "read_one": "select",
+      "read_all": "select_all",
+      "update": "update",
+      "delete": "delete"
+    },
+    "namespace_usage": "user_repository.select(id), user_repository.insert(data)",
+    "avoid": [
+      "get_user",
+      "find_by_id",
+      "save_user",
+      "remove_user"
+    ]
+  },
+  "database_classes": {
+    "required": [
+      "DB",
+      "DBConnPool"
+    ],
+    "import": "from api.utils.DB import DB, Record, Recordset; from api.utils.DBConnPool import DBConnPool",
+    "connection_pattern": "db.acquire(pool) -> operations -> db.release()"
+  },
+  "function_parameters": {
+    "rule": "no_default_values",
+    "rationale": "explicit over implicit - all parameters must be provided explicitly",
+    "forbidden": "def select(db: DB, id: int = None)",
+    "required": "def select(db: DB, id: int)"
+  },
+  "function_signatures": {
+    "select": {
+      "params": ["db: DB", "id: int"],
+      "returns": "Record",
+      "description": "Select single record by ID"
+    },
+    "select_all": {
+      "params": ["db: DB"],
+      "returns": "Recordset",
+      "description": "Select all records"
+    },
+    "insert": {
+      "params": ["db: DB", "data: dict"],
+      "returns": "int",
+      "description": "Insert record and return last_insert_id"
+    },
+    "update": {
+      "params": ["db: DB", "id: int", "data: dict"],
+      "returns": "int",
+      "description": "Update record and return affected rows"
+    },
+    "delete": {
+      "params": ["db: DB", "id: int"],
+      "returns": "int",
+      "description": "Delete record and return affected rows"
+    }
+  },
+  "db_operations": {
+    "select_one": "db.select(sql, params) -> Record",
+    "select_many": "db.select_all(sql, params) -> Recordset",
+    "insert": "db.insert(sql, params) -> int (last_insert_id)",
+    "update_delete": "db.query(sql, params) -> int (rowcount)"
+  },
+  "transaction_pattern": {
+    "naming": "transactional functions use verb + _tx suffix",
+    "example": "create_order_tx(db, order_data, items)",
+    "description": "Functions that execute multiple queries atomically",
+    "implementation": "Use db._get_cursor() context manager for automatic commit/rollback"
+  },
+  "responsibility": {
+    "repositories": "SQL query execution only",
+    "no_business_logic": true,
+    "no_validation": true,
+    "no_response_wrapping": true,
+    "return_raw_db_results": true
+  },
+  "layer_relationships": {
+    "called_by": "services only",
+    "calls": "DB class methods",
+    "never_imported_by": [
+      "routes",
+      "adapters",
+      "models"
+    ]
+  },
+  "connection_management": {
+    "pool_location": "service layer or global",
+    "acquire_release": "service responsibility",
+    "repository_receives": "already acquired DB instance"
+  },
+  "forbidden": [
+    "response_model usage",
+    "pydantic validation",
+    "business logic",
+    "connection pool management in repository",
+    "verbose function names like get_user_by_id",
+    "default parameter values"
+  ]
+}
