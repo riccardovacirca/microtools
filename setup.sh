@@ -184,6 +184,7 @@ info "Installing Python packages (FastAPI, uvicorn, database drivers, Redis)..."
 pip3 install --no-cache-dir --break-system-packages \
   fastapi "uvicorn[standard]" psycopg2-binary pymysql pyodbc \
   python-dotenv pyjwt "email-validator" redis gunicorn httpx \
+  sqlalchemy \
   >/dev/null 2>&1 || error "Failed to install Python packages"
 
 # Download cpp-httplib (header-only library) for C++ microservices
@@ -209,10 +210,14 @@ else
   warn "Failed to download nanodbc"
 fi
 
-# Compile and install microtools library (required by C++ modules)
-if [ -d /workspace/.prototype/install/lib/microtools ]; then
+# Copy and compile microtools library (required by C++ modules)
+if [ -d /workspace/.prototype/install/lib/utils/cpp ]; then
+  info "Copying microtools library sources to services/utils..."
+  mkdir -p /workspace/services/utils
+  rm -rf /workspace/services/utils/*
+  cp -r /workspace/.prototype/install/lib/utils/cpp/* /workspace/services/utils/
   info "Compiling microtools static library..."
-  cd /workspace/.prototype/install/lib/microtools
+  cd /workspace/services/utils
   mkdir -p build
   cd build
   if cmake .. >/dev/null 2>&1 && make >/dev/null 2>&1; then
@@ -230,7 +235,18 @@ if [ -d /workspace/.prototype/install/lib/microtools ]; then
   fi
   cd /workspace
 else
-  warn "microtools library not found in .prototype/install/lib"
+  warn "microtools library sources not found in .prototype/install/lib/utils/cpp"
+fi
+
+# Copy Python utils library (required by API modules)
+if [ -d /workspace/.prototype/install/lib/utils/python ]; then
+  info "Copying Python utils library to api/utils..."
+  mkdir -p /workspace/api/utils
+  rm -rf /workspace/api/utils/*
+  cp -r /workspace/.prototype/install/lib/utils/python/* /workspace/api/utils/
+  info "Python utils library installed to /workspace/api/utils"
+else
+  warn "Python utils library not found in .prototype/install/lib/utils/python"
 fi
 
 # Copy bin directory with utilities (only if install is not a symlink to .prototype/install)

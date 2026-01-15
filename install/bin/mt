@@ -59,6 +59,9 @@ Microservice Management (C++ services):
   mt service restart -n NAME   Restart enabled microservice
   mt service status -n NAME    Show microservice status
 
+Library Management:
+  mt lib build                 Build and install libmicrotools.a static library
+
 Service Management:
   mt redis start|stop|restart|status|info|cli
   mt uvicorn start|stop|restart|status
@@ -327,6 +330,41 @@ service_build() {
   else
     warn "Build completed but binary not found at expected location: $SERVICE_DIR/bin/$BINARY_NAME"
   fi
+}
+
+lib_build() {
+  LIB_SRC="/workspace/.prototype/install/lib/utils/cpp"
+  LIB_DEST="/workspace/services/utils"
+  LIB_LOG="/workspace/logs/libmicrotools-build.log"
+
+  [ ! -d "$LIB_SRC" ] && error "Library sources not found: $LIB_SRC"
+
+  info "Copying microtools library sources to services/utils..."
+  mkdir -p "$LIB_DEST"
+  rm -rf "$LIB_DEST"/*
+  cp -r "$LIB_SRC"/* "$LIB_DEST"/
+
+  info "Compiling microtools static library..."
+  cd "$LIB_DEST"
+  mkdir -p build
+  cd build
+
+  cmake .. > "$LIB_LOG" 2>&1 || error "CMake configuration failed. Check $LIB_LOG"
+  make -j$(nproc) >> "$LIB_LOG" 2>&1 || error "Build failed. Check $LIB_LOG"
+
+  if [ -f libmicrotools.a ]; then
+    mkdir -p /usr/local/lib
+    mkdir -p /usr/local/include/microtools
+    cp libmicrotools.a /usr/local/lib/
+    cp ../*.h /usr/local/include/microtools/
+    info "Library installed: /usr/local/lib/libmicrotools.a"
+    info "Headers installed: /usr/local/include/microtools/"
+    info "Library size: $(du -h /usr/local/lib/libmicrotools.a | cut -f1)"
+  else
+    error "Build completed but libmicrotools.a not found"
+  fi
+
+  cd /workspace
 }
 
 service_enable() {
@@ -2380,6 +2418,23 @@ case "$COMMAND" in
         ;;
       *)
         error "Unknown git action: $GIT_ACTION. Valid actions: push, pull, sync, branch, merge"
+        ;;
+    esac
+    ;;
+
+  lib)
+    # Parse lib subcommand
+    [ $# -eq 0 ] && error "Lib action required. Use 'mt --help' for usage information"
+
+    LIB_ACTION="$1"
+    shift
+
+    case "$LIB_ACTION" in
+      build)
+        lib_build
+        ;;
+      *)
+        error "Unknown lib action: $LIB_ACTION. Valid actions: build"
         ;;
     esac
     ;;

@@ -167,6 +167,13 @@
   sistema per permettere di trovare il file microtools.a durante la procedura di
   compilazione
 
+- L'installazione corrente di fastAPI nella cartella /workspace/api avviene durante la procedura di setup a carico del file setup.sh . questa installazione prevede una struttura modulare del progetto fastAPI . i moduli come ad esempio mod_status devono usare una libreria comune. attualmente stiamo migrando questa libreria. in precedenza questa libreria era implementata nella cartella /workspace/api/common.backup ma adesso la decisione è quella di utilizzare la libreria presente in /workspace/.prototype/install/lib/utils/python così come avviene per la libreria cpp anche questa libreria dovrebbe essere copiata dalla sua posizione attuale che è la posizione di origine nella posizione /workspace/api/utils e utilizzata da questa posizione. questa copia deve avvenire durante la procedura di setup eseguita dal file setup.sh. tutti i moduli dovrebbero usare gli script di questa libreria per le operazioni comuni che per il momento sono parzialmente implementate. Attualmente infatti i moduli python in apii sono solo parzialmente funzionanti perchè la  libreria è ancora incompleta. per il momento occupiamoci del setup che copia la libreria poi implementeremo e correggeremo i moduli
+
+
+
+
+
+
 --------------------------------------------------------------------------------
 
 docker pull ollama/ollama:latest
