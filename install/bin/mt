@@ -1906,7 +1906,7 @@ wa_status() {
 
   # Find all microservices in /workspace/services/
   if [ -d /workspace/services ]; then
-    for service_dir in /workspace/services/*/; do
+    for service_dir in /workspace/services/mod_*/; do
       if [ -d "$service_dir" ]; then
         SERVICE_NAME=$(basename "$service_dir")
         SERVICE_VAR=$(echo "$SERVICE_NAME" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
