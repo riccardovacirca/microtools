@@ -852,7 +852,7 @@ Al momento non viene imposta nessula logica di dominio
 ### Database
 
 ```
-/workspace/database/<MODULE_NAME>
+/workspace/database/mod_<MODULE_NAME>
 |-- mariadb
 |   |-- data.sql
 |   |-- schema_install.sql

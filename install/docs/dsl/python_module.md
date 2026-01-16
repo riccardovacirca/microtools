@@ -1,5 +1,21 @@
 MODULE_STYLE layered_servlet_architecture
 
+# ENTITY AUTONOMY
+
+PRINCIPLE: Ogni entità applicativa del modulo deve essere autonoma e minimamente accoppiata.
+
+DEFINITION: Un'entità è un insieme coeso di file (model, service, repository, adapter) che gestisce una specifica risorsa del dominio.
+
+EXAMPLES: contatto, lista, campagna, user, order
+
+RULES:
+  - Ogni entità ha il proprio file model con la propria funzione response()
+  - Nessun response_model.py centralizzato condiviso tra entità
+  - Service di un'entità importa solo il model della propria entità
+  - Cross-entity references solo quando strettamente necessario
+
+RATIONALE: Minimo accoppiamento, massima coesione, facilità di manutenzione e testing
+
 # DIRECTORY STRUCTURE
 
 ```
@@ -13,12 +29,13 @@ mod_<name>/
 │   └── <entity>_service.py     # Singular: one entity per file
 ├── models/                      # Plural: contains multiple models
 │   ├── __init__.py
-│   ├── <entity>_model.py       # Singular: one entity per file
-│   └── response_model.py       # Standard response wrapper
+│   └── <entity>_model.py       # Singular: one entity per file (includes response())
 └── repositories/                # Optional: for database access
     ├── __init__.py
     └── <entity>_repository.py  # Singular: one entity per file
 ```
+
+NOTE: No response_model.py centralizzato. Ogni <entity>_model.py contiene la propria funzione response().
 
 # NAMING CONVENTIONS
 
@@ -63,10 +80,11 @@ ROUTES:
   - Responsibility: HTTP layer
 
 SERVICES:
-  - Imports: adapters, repositories, models, response_model
-  - Calls: info_adapter.get(), user_repository.select(db, id), info_model.get(data), response_model.get()
-  - Returns: response_model dict
+  - Imports: adapters, repositories, entity-specific models
+  - Calls: contatto_adapter.get(), contatto_repository.select(db, id), contatto_model.ContattoOutput(**data), contatto_model.response()
+  - Returns: entity_model.response() dict
   - Responsibility: orchestration + business logic + connection management
+  - Entity isolation: ogni service importa solo il model della propria entità
 
 ADAPTERS:
   - Imports: httpx, external libs
@@ -90,61 +108,83 @@ MODELS:
 STYLE: namespace import
 
 Routes:
-  from .services import info_service
-  Usage: info_service.get()
+  from .services import contatto_service, lista_service
+  Usage: contatto_service.get()
 
-Services:
-  from ..adapters import info_adapter
-  from ..repositories import user_repository
-  from ..models import info_model, response_model
-  Usage: info_adapter.get(), user_repository.select(db, id), info_model.get(data), response_model.get()
+Services (entity-specific):
+  from ..adapters import contatto_adapter
+  from ..repositories import contatto_repository
+  from ..models import contatto_model
+  Usage: contatto_adapter.get(), contatto_repository.select(db, id), contatto_model.response()
+
+ENTITY ISOLATION:
+  - Rule: ogni service importa solo il model della propria entità
+  - Correct: contatto_service.py imports contatto_model only
+  - Forbidden: contatto_service.py imports lista_model (cross-entity)
 
 FORBIDDEN:
-  - from .services.info_service import get
-  - from ..adapters.info_adapter import *
-  - from ..repositories import user_repository in routes
+  - from .services.contatto_service import get
+  - from ..adapters.contatto_adapter import *
+  - from ..repositories import contatto_repository in routes
+  - from ..models import response_model (centralizzato)
   - Direct adapter or repository import in routes
+  - Cross-entity model imports (unless strictly necessary)
 
 # DATA FLOW
 
 REQUEST PATH (external HTTP):
-  1. routes.info_handler() receives HTTP request
-  2. calls info_service.get()
-  3. service calls info_adapter.get() for raw external data
-  4. service calls info_model.get(data) for validation
-  5. service calls response_model.get(err, log, out)
+  1. routes.contatto_handler() receives HTTP request
+  2. calls contatto_service.get()
+  3. service calls contatto_adapter.get() for raw external data
+  4. service calls contatto_model.ContattoOutput(**data) for validation
+  5. service calls contatto_model.response(err, log, out)
   6. routes returns JSONResponse(data, status_code)
 
 REQUEST PATH (database):
-  1. routes.user_handler() receives HTTP request
-  2. calls user_service.get(id)
+  1. routes.contatto_handler() receives HTTP request
+  2. calls contatto_service.get(id)
   3. service acquires DB: db.acquire(pool)
-  4. service calls user_repository.select(db, id) for raw DB data
-  5. service calls user_model.get(data) for validation
-  6. service calls response_model.get(err, log, out)
+  4. service calls contatto_repository.select(db, id) for raw DB data
+  5. service calls contatto_model.ContattoOutput(**dict(row)) for validation
+  6. service calls contatto_model.response(False, None, output.model_dump())
   7. service releases DB: db.release()
   8. routes returns JSONResponse(data, status_code)
 
 RESPONSE PATH:
-  (external_system | database) -> (adapter | repository) -> service (validate) -> service (wrap) -> routes (HTTP)
+  (external_system | database) -> (adapter | repository) -> service (validate via entity_model) -> service (wrap via entity_model.response) -> routes (HTTP)
 
 VALIDATION POINT: services layer only
 ERROR HANDLING: services layer only
 CONNECTION MANAGEMENT: services layer only
+ENTITY ISOLATION: each service uses only its own entity_model
 
-# RESPONSE MODEL
+# RESPONSE FUNCTION (per-entity)
 
 MANDATORY: yes
-LOCATION: models/response_model.py
-USAGE: all services must return response_model.get()
+LOCATION: models/<entity>_model.py (within each entity model file)
+USAGE: each service returns its entity_model.response()
 
 STRUCTURE:
   - err: bool (True if error, False if success)
   - log: str|None (error message or None)
   - out: Any|None (data or None)
 
-SUCCESS: response_model.get(False, None, validated_data)
-ERROR: response_model.get(True, "error message", None)
+SUCCESS: contatto_model.response(False, None, validated_data)
+ERROR: contatto_model.response(True, "error message", None)
+
+EXAMPLE (models/contatto_model.py):
+```python
+from typing import Any
+
+def response(err: bool, log: str | None, out: Any | None) -> dict:
+    """Costruisce risposta standardizzata per contatto."""
+    return {"err": err, "log": log, "out": out}
+
+class ContattoInput(BaseModel): ...
+class ContattoOutput(BaseModel): ...
+```
+
+FORBIDDEN: models/response_model.py centralizzato condiviso tra entità
 
 # FUNCTION NAMING
 
@@ -198,9 +238,19 @@ DIRECT ACCESS FROM ROUTES:
   - Routes must never import repositories
   - All data access via services only
 
-BYPASSING RESPONSE MODEL:
+CENTRALIZED RESPONSE MODEL:
+  - No models/response_model.py shared across entities
+  - Each entity has its own response() function in its model file
+  - Forbidden: from ..models import response_model
+
+CROSS-ENTITY MODEL IMPORTS:
+  - Services should not import models from other entities
+  - Forbidden: contatto_service.py importing lista_model
+  - Exception: only when strictly necessary for cross-entity operations
+
+BYPASSING RESPONSE FUNCTION:
   - Services must never return raw data
-  - Always wrap in response_model.get()
+  - Always wrap in entity_model.response()
 
 CONNECTION MANAGEMENT IN REPOSITORY:
   - Repositories must never manage DB connections
@@ -217,51 +267,55 @@ VERBOSE NAMING:
 # EXAMPLE MODULE (with database)
 
 ```
-mod_users/
+mod_risorse/
 ├── routes.py
-│   └── from .services import user_service
-│       └── user_service.get(id)
+│   └── from .services import contatto_service, lista_service
+│       └── contatto_service.get(id)
 │
 ├── services/
-│   └── user_service.py
-│       └── from ..repositories import user_repository
-│       └── from ..models import user_model, response_model
+│   └── contatto_service.py
+│       └── from ..repositories import contatto_repository
+│       └── from ..models import contatto_model  # entity-specific only!
 │       └── from api.utils.DB import DB
 │       └── from api.utils.DBConnPool import DBConnPool
-│       └── def get(id):
+│       └── async def get(pool, id):
 │           db = DB()
 │           db.acquire(pool)
-│           ... user_repository.select(db, id)
+│           row = contatto_repository.select(db, id)
+│           output = contatto_model.ContattoOutput(**dict(row))
 │           db.release()
-│           return response_model.get(...)
+│           return contatto_model.response(False, None, output.model_dump())
 │
 ├── repositories/
-│   └── user_repository.py
+│   └── contatto_repository.py
 │       └── from api.utils.DB import DB, Record, Recordset
 │       └── def select(db, id): return db.select(sql, (id,))
 │       └── def insert(db, data): return db.insert(sql, params)
 │
 └── models/
-    ├── user_model.py
-    │   └── def get(data): return UserModel(**data)
-    └── response_model.py
-        └── def get(err, log, out): return {...}
+    └── contatto_model.py  # includes response() + Input/Output models
+        └── def response(err, log, out): return {"err": err, "log": log, "out": out}
+        └── class ContattoInput(BaseModel): ...
+        └── class ContattoOutput(BaseModel): ...
 ```
 
+NOTE: No response_model.py! Each entity model (contatto_model.py, lista_model.py, etc.)
+      contains its own response() function.
+
 CALL CHAIN (database):
-  routes.user_handler()
-    -> user_service.get(id)
+  routes.contatto_handler()
+    -> contatto_service.get(pool, id)
       -> db.acquire(pool)
-      -> user_repository.select(db, id) [raw Record]
-      -> user_model.get(dict(record)) [validated]
-      -> response_model.get(False, None, validated) [wrapped]
+      -> contatto_repository.select(db, id) [raw Record]
+      -> contatto_model.ContattoOutput(**dict(row)) [validated]
+      -> contatto_model.response(False, None, output.model_dump()) [wrapped]
       -> db.release()
     -> JSONResponse(data, 200)
 
 CALL CHAIN (external HTTP):
-  routes.info_handler()
-    -> info_service.get()
-      -> info_adapter.get() [raw data from HTTP]
-      -> info_model.get(data) [validated]
-      -> response_model.get(False, None, validated) [wrapped]
+  routes.contatto_handler()
+    -> contatto_service.get()
+      -> contatto_adapter.get() [raw data from HTTP]
+      -> contatto_model.ContattoOutput(**data) [validated]
+      -> contatto_model.response(False, None, output.model_dump()) [wrapped]
     -> JSONResponse(data, 200)

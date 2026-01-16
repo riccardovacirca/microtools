@@ -33,7 +33,7 @@ mod_<MODULE_NAME>/
 │   ├── include/                     Headers con Doxygen
 │   └── .env.example                 Template variabili ambiente
 │
-└── database/<MODULE_NAME>/          [OPTIONAL]
+└── database/mod_<MODULE_NAME>/      [OPTIONAL]
     ├── sqlite3/
     ├── mariadb/
     ├── postgres/
@@ -148,7 +148,7 @@ Tutti i componenti: API, GUI, Microservizi, Database.
 api/mod_<MODULE_NAME>/
 gui/src/mod_<MODULE_NAME>/
 services/mod_<MODULE_NAME>/
-database/<MODULE_NAME>/
+database/mod_<MODULE_NAME>/
 ```
 
 **Use case**: Funzionalità autonoma con frontend, backend, elaborazione C++ e persistenza.

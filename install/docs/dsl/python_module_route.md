@@ -5,6 +5,30 @@ ROUTING:
   - decorators only
   - no global app routes
 
+PATH CONVENTION:
+  Pattern: /api/<module_name>/<entity_name>
+
+  - module_name: nome del modulo SENZA prefisso mod_
+    esempio: mod_risorse -> risorse, mod_status -> status
+
+  - entity_name: nome dell'entità al plurale
+    esempio: contatti, liste, campagne, users
+
+  CRUD paths:
+    - LIST:   GET    /api/<module>/<entity>
+    - CREATE: POST   /api/<module>/<entity>
+    - READ:   GET    /api/<module>/<entity>/{id}
+    - UPDATE: PUT    /api/<module>/<entity>/{id}
+    - DELETE: DELETE /api/<module>/<entity>/{id}
+    - NESTED: GET    /api/<module>/<entity>/{id}/<sub_entity>
+
+  Examples:
+    /api/risorse/contatti
+    /api/risorse/contatti/{id}
+    /api/risorse/liste
+    /api/risorse/liste/{id}/contatti
+    /api/status/info
+
 HANDLERS:
   - async only
   - Request imported ONLY if used

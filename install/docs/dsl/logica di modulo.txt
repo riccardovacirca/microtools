@@ -1,0 +1,30 @@
+ho analizzato la componente gui del modulo in /workspace/gui/src/mod_risorse. ci sono alcune criticità che anche in questo caso dipendono dalla mancanza
+  di un dsl di specifiche. la attuale organizzazione può crescere in modo molto disordinato. mediante un opportuno dsl denominato module_gui.* imponiamo
+  la seguente logica: <script>
+    import ContattiComponent from './ContattiComponent.svelte';
+    import ListeComponent from './ListeComponent.svelte';
+    import CampagneComponent from './CampagneComponent.svelte';
+
+    export let currentView;
+  </script>
+
+  <main class="content">
+    {#if currentView === 'contatti'}
+      <ContattiComponent />
+    {:else if currentView === 'liste'}
+      <ListeComponent />
+    {:else if currentView === 'campagne'}
+      <CampagneComponent />
+    {/if}
+  </main>
+  Qui abbiamo import statici che rendono il sistema più stabile. ma questo è solo un esempio infatti abbiamo bisogno di una organizzazione dei file in
+  sottocartelle per evitare un affollamento di file in caso di moduli con logica complessa. le regole generali sono le seguenti: ogni modulo ha un Layout
+  di modulo nella cartella mod_<module_name> il nome di questo layout è <module_name>Layout.svelte (PascalCase). questo importa a sua volta i layout di
+  entità  mod_<module_name>/<Entity_name>Layout.svelte (PascalCase) e i layout di entità a loro volta includono layout e componenti di quella entità che
+  si trovano in una sottocartella ad esempio mod_<module_name>/<entity_name>/. se la sottostruttura relativa alla entità è sufficientemente sempice da
+  poter includere direttamente i componenti allora la cartella di entità conterrà solo componenti <component_name>Component.svelte (PascalCase) altrimenti
+  può contenere un ulteriore Layout ad esempio <subentity>Layout.svelte con una subentity folder dentro la cartella di entità con i component de vanno
+  collocati nel subentity layout. e così via. si tratta di una struttura ricorsiva ma per garantire gestibilità non scenderei oltre il livello di
+  subentity. Lo scopo dei layout è quello di avere la logica minima per importare i componenti che servono, ma tutta la logica applicativa di frontend sta
+  nei componenti. lo store a livello di modulo dovrebbe essere unico e centralizzato nella cartella di modulo. pianifica in un file questa attività,ma
+  prima fai un breve riepilogo per dimostrarmi che hai compreso la logica

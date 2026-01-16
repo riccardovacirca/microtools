@@ -1,0 +1,139 @@
+{
+  "dsl_name": "microtools_database_module",
+  "version": "1.0",
+  "description": "DSL per la struttura dei file SQL di un modulo database",
+
+  "structure": {
+    "location": "/workspace/database/mod_<MODULE_NAME>/",
+    "directories": {
+      "sqlite3/": "Schema e dati per SQLite3",
+      "mariadb/": "Schema e dati per MariaDB",
+      "postgres/": "Schema e dati per PostgreSQL"
+    },
+    "entry_points": {
+      "pattern": "<dbtype>_install.sql e <dbtype>_uninstall.sql",
+      "examples": [
+        "sqlite3_install.sql",
+        "sqlite3_uninstall.sql",
+        "mariadb_install.sql",
+        "mariadb_uninstall.sql",
+        "postgres_install.sql",
+        "postgres_uninstall.sql"
+      ],
+      "purpose": "File di ingresso usati da bin/mt per installare/disinstallare il modulo"
+    },
+    "schema_files": {
+      "location": "<dbtype>/",
+      "files": {
+        "schema_install.sql": "Creazione tabelle, indici, constraint",
+        "schema_uninstall.sql": "Rimozione tabelle (ordine inverso rispetto a install)",
+        "data.sql": "Dati iniziali o di esempio (opzionale)"
+      }
+    }
+  },
+
+  "require_directive": {
+    "syntax": "-- @require <relative_path>",
+    "purpose": "Specifica dipendenze tra file SQL, gestite da bin/mt",
+    "processing": "bin/mt analizza le direttive e determina l'ordine di esecuzione",
+    "path_resolution": "Path relativo alla directory del modulo database",
+    "examples": [
+      "-- @require sqlite3/schema_install.sql",
+      "-- @require sqlite3/data.sql",
+      "-- @require sqlite3/schema_uninstall.sql"
+    ]
+  },
+
+  "file_patterns": {
+    "install_entry": {
+      "file": "<dbtype>_install.sql",
+      "content": [
+        "-- @require <dbtype>/schema_install.sql",
+        "-- @require <dbtype>/data.sql"
+      ],
+      "notes": "Nessun altro contenuto, solo direttive @require"
+    },
+    "uninstall_entry": {
+      "file": "<dbtype>_uninstall.sql",
+      "content": [
+        "-- @require <dbtype>/schema_uninstall.sql"
+      ],
+      "notes": "Nessun altro contenuto, solo direttive @require"
+    },
+    "schema_install": {
+      "file": "<dbtype>/schema_install.sql",
+      "content": "CREATE TABLE, CREATE INDEX, constraint definitions",
+      "order": "Tabelle senza dipendenze prima, poi tabelle con foreign key"
+    },
+    "schema_uninstall": {
+      "file": "<dbtype>/schema_uninstall.sql",
+      "content": "DROP TABLE statements",
+      "order": "Ordine inverso rispetto a schema_install (tabelle dipendenti prima)"
+    },
+    "data": {
+      "file": "<dbtype>/data.sql",
+      "content": "INSERT statements per dati iniziali",
+      "optional": true
+    }
+  },
+
+  "naming_conventions": {
+    "module_directory": "mod_<MODULE_NAME> (con prefisso mod_)",
+    "dbtype_directories": "lowercase (sqlite3, mariadb, postgres)",
+    "entry_files": "<dbtype>_install.sql, <dbtype>_uninstall.sql",
+    "schema_files": "schema_install.sql, schema_uninstall.sql, data.sql"
+  },
+
+  "forbidden_patterns": {
+    "sqlite_dot_commands": {
+      "forbidden": ".read, .import, .mode, etc.",
+      "reason": "Comandi SQLite-specifici non portabili e non gestiti da bin/mt",
+      "use_instead": "-- @require directive"
+    },
+    "inline_comments_as_content": {
+      "forbidden": "Commenti descrittivi nei file entry point",
+      "reason": "I file entry point contengono solo direttive @require"
+    },
+    "direct_sql_in_entry": {
+      "forbidden": "SQL statements nei file *_install.sql e *_uninstall.sql",
+      "reason": "I file entry point delegano tutto ai file in <dbtype>/"
+    }
+  },
+
+  "complete_structure": {
+    "example_module": "mod_risorse",
+    "tree": [
+      "/workspace/database/mod_risorse/",
+      "├── sqlite3/",
+      "│   ├── schema_install.sql    # CREATE TABLE, CREATE INDEX",
+      "│   ├── schema_uninstall.sql  # DROP TABLE",
+      "│   └── data.sql              # INSERT (opzionale)",
+      "├── sqlite3_install.sql       # -- @require sqlite3/schema_install.sql",
+      "│                             # -- @require sqlite3/data.sql",
+      "├── sqlite3_uninstall.sql     # -- @require sqlite3/schema_uninstall.sql",
+      "├── mariadb/",
+      "│   ├── schema_install.sql",
+      "│   ├── schema_uninstall.sql",
+      "│   └── data.sql",
+      "├── mariadb_install.sql",
+      "├── mariadb_uninstall.sql",
+      "├── postgres/",
+      "│   ├── schema_install.sql",
+      "│   ├── schema_uninstall.sql",
+      "│   └── data.sql",
+      "├── postgres_install.sql",
+      "└── postgres_uninstall.sql"
+    ]
+  },
+
+  "execution": {
+    "install_command": "mt db install -m <module_name> -t <dbtype>",
+    "uninstall_command": "mt db uninstall -m <module_name> -t <dbtype>",
+    "processing": [
+      "1. bin/mt legge il file entry point (<dbtype>_install.sql)",
+      "2. Analizza le direttive -- @require",
+      "3. Risolve le dipendenze e determina l'ordine di esecuzione",
+      "4. Esegue i file SQL nell'ordine corretto"
+    ]
+  }
+}

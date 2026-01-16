@@ -59,7 +59,7 @@
       }
     },
     "database": {
-      "location": "/workspace/database/<MODULE_NAME>/",
+      "location": "/workspace/database/mod_<MODULE_NAME>/",
       "required": false,
       "description": "Schema SQL per il modulo",
       "contents": {
@@ -148,7 +148,7 @@
       "api/mod_<MODULE_NAME>/",
       "gui/src/mod_<MODULE_NAME>/",
       "services/mod_<MODULE_NAME>/",
-      "database/<MODULE_NAME>/"
+      "database/mod_<MODULE_NAME>/"
     ],
     "use_case": "Modulo autonomo con frontend, backend, microservizi e persistenza"
   },

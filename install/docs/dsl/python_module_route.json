@@ -3,7 +3,27 @@
   "routing": {
     "router": "APIRouter",
     "registration": "decorators_only",
-    "allow_global_routes": false
+    "allow_global_routes": false,
+    "path_convention": {
+      "pattern": "/api/<module_name>/<entity_name>",
+      "module_name": "nome del modulo senza prefisso mod_ (es. mod_risorse -> risorse)",
+      "entity_name": "nome dell'entità al plurale (es. contatti, liste, campagne)",
+      "examples": [
+        "/api/risorse/contatti",
+        "/api/risorse/contatti/{id}",
+        "/api/risorse/liste",
+        "/api/risorse/liste/{id}/contatti",
+        "/api/status/info"
+      ],
+      "crud_paths": {
+        "list": "/api/<module>/<entity>",
+        "create": "/api/<module>/<entity>",
+        "read": "/api/<module>/<entity>/{id}",
+        "update": "/api/<module>/<entity>/{id}",
+        "delete": "/api/<module>/<entity>/{id}",
+        "nested": "/api/<module>/<entity>/{id}/<sub_entity>"
+      }
+    }
   },
   "handlers": {
     "async_only": true,

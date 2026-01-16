@@ -51,6 +51,19 @@
     "forbidden": "def func(a, b=None, c=default_value)",
     "required": "def func(a, b, c) - all parameters explicit and required"
   },
+  "entity_autonomy": {
+    "principle": "Ogni entità applicativa del modulo deve essere autonoma e minimamente accoppiata",
+    "definition": "Un'entità è un insieme coeso di file (model, service, repository, adapter) che gestisce una specifica risorsa del dominio",
+    "examples": ["contatto", "lista", "campagna", "user", "order"],
+    "rules": [
+      "Ogni entità ha il proprio file model con la propria funzione response()",
+      "Nessun response_model.py centralizzato condiviso tra entità",
+      "Service di un'entità importa solo il model della propria entità",
+      "Cross-entity references solo quando strettamente necessario"
+    ],
+    "rationale": "Minimo accoppiamento, massima coesione, facilità di manutenzione e testing"
+  },
+
   "layer_relationships": {
     "flow": "routes -> services -> (adapters | repositories) + models",
     "routes": {
@@ -59,12 +72,12 @@
       "responsibility": "HTTP layer only"
     },
     "services": {
-      "imports": ["adapters", "repositories", "models", "response_model"],
+      "imports": ["adapters", "repositories", "models (entity-specific)"],
       "calls": [
         "adapter.get() - for external HTTP",
         "repository.select(db, id) - for database",
-        "model.get(data)",
-        "response_model.get(err, log, out)"
+        "entity_model.EntityOutput(**data) - for validation",
+        "entity_model.response(err, log, out) - for response wrapping"
       ],
       "responsibility": "orchestration + business logic + connection management"
     },
@@ -85,32 +98,44 @@
   },
   "import_patterns": {
     "style": "namespace_import",
-    "routes": "from .services import info_service",
-    "services": "from ..adapters import info_adapter; from ..repositories import user_repository; from ..models import info_model, response_model",
-    "usage": "info_service.get(), info_adapter.get(), user_repository.select(db, id), info_model.get(data)",
+    "routes": "from .services import contatto_service, lista_service",
+    "services": "from ..adapters import contatto_adapter; from ..repositories import contatto_repository; from ..models import contatto_model",
+    "usage": "contatto_service.get(), contatto_adapter.get(), contatto_repository.select(db, id), contatto_model.response()",
+    "entity_isolation": {
+      "rule": "ogni service importa solo il model della propria entità",
+      "correct": "contatto_service.py imports contatto_model only",
+      "forbidden": "contatto_service.py imports lista_model (cross-entity)"
+    },
     "forbidden": [
-      "from .services.info_service import get",
-      "from ..adapters.info_adapter import *",
-      "from ..repositories import user_repository in routes"
+      "from .services.contatto_service import get",
+      "from ..adapters.contatto_adapter import *",
+      "from ..repositories import contatto_repository in routes",
+      "from ..models import response_model (centralizzato)"
     ]
   },
   "data_flow": {
     "external_http": "routes -> services -> adapters -> external_system",
     "database": "routes -> services -> repositories -> database",
-    "response": "data source -> (adapters | repositories) -> services (validate via models) -> services (wrap via response_model) -> routes (JSONResponse)",
+    "response": "data source -> (adapters | repositories) -> services (validate via entity_model) -> services (wrap via entity_model.response) -> routes (JSONResponse)",
     "validation_point": "services layer only",
     "error_handling_point": "services layer only",
     "connection_management": "services layer only"
   },
-  "response_model": {
+  "response_function": {
     "mandatory": true,
-    "location": "models/response_model.py",
-    "usage": "all services must return response_model.get()",
+    "location": "models/<entity>_model.py (within each entity model file)",
+    "usage": "each service returns its entity_model.response()",
     "structure": {
       "err": "bool",
       "log": "str|None",
       "out": "Any|None"
-    }
+    },
+    "example": {
+      "file": "models/contatto_model.py",
+      "function": "def response(err: bool, log: str | None, out: Any | None) -> dict: ...",
+      "usage_in_service": "return contatto_model.response(False, None, output.model_dump())"
+    },
+    "forbidden": "models/response_model.py centralizzato condiviso tra entità"
   },
   "function_naming": {
     "services_adapters": {
@@ -139,7 +164,9 @@
   "forbidden_patterns": {
     "circular_imports": "no adapter importing service, no model importing adapter, no repository importing service",
     "direct_access_from_routes": "routes must never import adapters or repositories directly",
-    "bypassing_response_model": "services must never return raw data without response_model",
+    "bypassing_response_function": "services must never return raw data without entity_model.response()",
+    "centralized_response_model": "no models/response_model.py shared across entities - each entity has its own response()",
+    "cross_entity_model_import": "services should not import models from other entities unless strictly necessary",
     "verbose_function_names": "no get_user_by_id, find_by_email, save_user - use simple verbs with parameters",
     "connection_management_in_repository": "repositories must never manage DB connections, only receive DB instance"
   }
