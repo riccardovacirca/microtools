@@ -35,11 +35,11 @@ class DBConnPool:
     if driver:
       return driver
     
-    if self.env.get("SQLITE3_ENABLED") == "y":
+    if self.env.get("SQLITE3_ENABLED", "n") == "y":
       return "sqlite3"
-    elif self.env.get("MARIADB_ENABLED") == "y":
+    elif self.env.get("MARIADB_ENABLED", "n") == "y":
       return "mariadb"
-    elif self.env.get("PGSQL_ENABLED") == "y":
+    elif self.env.get("PGSQL_ENABLED", "n") == "y":
       return "pgsql"
     else:
       raise ValueError("No database enabled. Set SQLITE3_ENABLED, MARIADB_ENABLED, or PGSQL_ENABLED to 'y'")
@@ -67,7 +67,7 @@ class DBConnPool:
       return engine
       
     elif self.driver == "pgsql":
-      conn_str = self.env.get("PGSQL_CONNECTION")
+      conn_str = self.env.get("PGSQL_CONNECTION", "")
       if not conn_str:
         raise ValueError("PGSQL_CONNECTION not set")
       
@@ -90,7 +90,7 @@ class DBConnPool:
       )
       
     elif self.driver == "mariadb":
-      conn_str = self.env.get("MARIADB_CONNECTION")
+      conn_str = self.env.get("MARIADB_CONNECTION", "")
       if not conn_str:
         raise ValueError("MARIADB_CONNECTION not set")
       

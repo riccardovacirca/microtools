@@ -1,1 +1,0 @@
--- @require postgres/schema_uninstall.sql

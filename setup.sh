@@ -177,7 +177,7 @@ info "Installing Python packages (FastAPI, uvicorn, database drivers, Redis)..."
 pip3 install --no-cache-dir --break-system-packages \
   fastapi "uvicorn[standard]" psycopg2-binary pymysql pyodbc \
   python-dotenv pyjwt "email-validator" redis gunicorn httpx \
-  sqlalchemy \
+  sqlalchemy websockets \
   >/dev/null 2>&1 || error "Failed to install Python packages"
 
 # Download cpp-httplib (header-only library) for C++ microservices
@@ -189,6 +189,41 @@ if curl -fsSL "https://raw.githubusercontent.com/yhirose/cpp-httplib/master/http
 else
   warn "Failed to download cpp-httplib"
 fi
+
+# Download and install uWebSockets (header-only) and uSockets (static library)
+info "Installing uWebSockets and uSockets..."
+UWEBSOCKETS_TMP="/tmp/uwebsockets_install_$$"
+mkdir -p "$UWEBSOCKETS_TMP"
+cd "$UWEBSOCKETS_TMP"
+
+# Clone and build uSockets
+if git clone --depth 1 https://github.com/uNetworking/uSockets.git >/dev/null 2>&1; then
+  cd uSockets
+  if make >/dev/null 2>&1; then
+    cp uSockets.a /usr/local/lib/libuSockets.a
+    cp src/*.h /usr/local/include/
+    info "uSockets library and headers installed to /usr/local"
+  else
+    warn "Failed to build uSockets"
+  fi
+  cd "$UWEBSOCKETS_TMP"
+else
+  warn "Failed to clone uSockets"
+fi
+
+# Clone uWebSockets (header-only)
+if git clone --depth 1 https://github.com/uNetworking/uWebSockets.git >/dev/null 2>&1; then
+  mkdir -p /usr/local/include/uwebsockets
+  cp uWebSockets/src/*.h /usr/local/include/uwebsockets/
+  info "uWebSockets headers installed to /usr/local/include/uwebsockets"
+else
+  warn "Failed to clone uWebSockets"
+fi
+
+# Cleanup
+cd /workspace
+rm -rf "$UWEBSOCKETS_TMP"
+info "uWebSockets installation completed"
 
 # Download nanodbc (ODBC wrapper library)
 info "Downloading nanodbc library..."

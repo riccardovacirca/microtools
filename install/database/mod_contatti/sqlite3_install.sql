@@ -1,2 +1,0 @@
--- @require sqlite3/schema_install.sql
--- @require sqlite3/data.sql

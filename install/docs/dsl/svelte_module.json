@@ -1,0 +1,317 @@
+{
+  "module_style": "hierarchical_layout_architecture",
+  "description": "DSL per l'organizzazione della GUI Svelte con layout gerarchici e componenti",
+
+  "architecture": {
+    "principle": "Separazione tra layout (routing/visibilità) e componenti (logica applicativa)",
+    "hierarchy": {
+      "levels": ["module", "entity", "subentity"],
+      "max_depth": 3,
+      "rationale": "Profondità limitata per garantire gestibilità e manutenibilità"
+    },
+    "import_style": {
+      "type": "static",
+      "forbidden": "dynamic import (#await import(...))",
+      "required": "import Component from './path/Component.svelte'",
+      "rationale": "Import statici garantiscono stabilità e prevedibilità"
+    }
+  },
+
+  "structure": {
+    "module_level": {
+      "location": "mod_<module_name>/",
+      "files": {
+        "entry_point": {
+          "name": "Layout.svelte",
+          "purpose": "Entry point del modulo, importato da src/Layout.svelte",
+          "imports": "EntityLayout files",
+          "logic": "Minima: navigazione tra entità via {#if currentView === 'entity'}"
+        },
+        "entity_layouts": {
+          "pattern": "<EntityName>Layout.svelte",
+          "naming": "PascalCase",
+          "examples": ["ContattiLayout.svelte", "ListeLayout.svelte", "CampagneLayout.svelte"],
+          "purpose": "Routing verso componenti dell'entità",
+          "imports": "Components from entity folder"
+        },
+        "store": {
+          "name": "store.js",
+          "required": true,
+          "scope": "Unico e centralizzato per tutto il modulo",
+          "purpose": "Stato condiviso tra tutti i componenti del modulo"
+        }
+      }
+    },
+    "entity_level": {
+      "location": "mod_<module_name>/<entity_name>/",
+      "naming": "snake_case for folders",
+      "content": {
+        "simple_entity": {
+          "description": "Entità con logica semplice",
+          "files": ["<ComponentName>Component.svelte"],
+          "no_sublayout": true
+        },
+        "complex_entity": {
+          "description": "Entità con logica complessa che richiede sub-struttura",
+          "files": ["<SubentityName>Layout.svelte", "<subentity_name>/"]
+        }
+      }
+    },
+    "subentity_level": {
+      "location": "mod_<module_name>/<entity_name>/<subentity_name>/",
+      "naming": "snake_case for folders",
+      "content": ["<ComponentName>Component.svelte"],
+      "max_depth": "Nessun ulteriore annidamento permesso",
+      "rationale": "Limite di profondità per evitare complessità eccessiva"
+    }
+  },
+
+  "naming_conventions": {
+    "layouts": {
+      "pattern": "<Name>Layout.svelte",
+      "case": "PascalCase",
+      "suffix": "Layout",
+      "examples": {
+        "module_entry": "Layout.svelte",
+        "entity": "ContattiLayout.svelte",
+        "subentity": "DettaglioLayout.svelte"
+      }
+    },
+    "components": {
+      "pattern": "<Name>Component.svelte",
+      "case": "PascalCase",
+      "suffix": "Component",
+      "examples": ["ListaComponent.svelte", "FormComponent.svelte", "TabellaComponent.svelte"]
+    },
+    "folders": {
+      "case": "snake_case",
+      "examples": ["contatti", "liste", "campagne", "dettaglio_contatto"]
+    },
+    "store": {
+      "name": "store.js",
+      "location": "module root only"
+    }
+  },
+
+  "layout_rules": {
+    "responsibility": {
+      "allowed": [
+        "Import statici di componenti e sub-layout",
+        "Routing via {#if}/{:else if} basato su stato",
+        "Passaggio props ai componenti figli",
+        "Navigazione e visibilità"
+      ],
+      "forbidden": [
+        "Logica applicativa",
+        "Chiamate API dirette",
+        "Gestione stato complesso",
+        "Manipolazione dati",
+        "Business logic"
+      ]
+    },
+    "state_management": {
+      "navigation_state": "Gestito nel layout (currentView, activeTab, etc.)",
+      "application_state": "Gestito nello store centralizzato",
+      "local_state": "Gestito nei componenti"
+    },
+    "prop_passing": {
+      "pattern": "export let propName",
+      "direction": "top-down (layout -> component)",
+      "example": "<ContattiLayout {currentView} />"
+    }
+  },
+
+  "component_rules": {
+    "responsibility": {
+      "required": [
+        "Logica applicativa completa",
+        "Chiamate API",
+        "Gestione stato locale",
+        "Interazioni utente",
+        "Rendering UI",
+        "Event handling"
+      ],
+      "forbidden": [
+        "Decisione sulla propria visibilità (compete al layout)",
+        "Import di altri layout",
+        "Gestione navigazione globale"
+      ]
+    },
+    "visibility_rule": {
+      "principle": "Il componente si occupa solo del rendering",
+      "visibility_decision": "Sempre delegata al layout parent",
+      "pattern": "Layout decide {#if show}<Component />{/if}, Component renderizza sempre"
+    },
+    "store_access": {
+      "import": "import { storeName } from '../store.js'",
+      "usage": "Lettura e scrittura stato condiviso"
+    }
+  },
+
+  "store_rules": {
+    "location": "mod_<module_name>/store.js",
+    "scope": "Unico per modulo",
+    "centralization": {
+      "required": true,
+      "forbidden": "Store multipli sparsi nelle sottocartelle"
+    },
+    "content": {
+      "allowed": [
+        "Stato condiviso del modulo",
+        "Derived state",
+        "Actions/mutations"
+      ]
+    },
+    "import_pattern": {
+      "from_entity": "import { state } from '../store.js'",
+      "from_subentity": "import { state } from '../../store.js'"
+    }
+  },
+
+  "import_patterns": {
+    "layout_imports": {
+      "module_layout": {
+        "imports": "Entity layouts",
+        "example": "import ContattiLayout from './ContattiLayout.svelte'"
+      },
+      "entity_layout": {
+        "imports": "Components from entity folder OR subentity layouts",
+        "example_simple": "import ListaComponent from './contatti/ListaComponent.svelte'",
+        "example_complex": "import DettaglioLayout from './contatti/DettaglioLayout.svelte'"
+      },
+      "subentity_layout": {
+        "imports": "Components from subentity folder only",
+        "example": "import FormComponent from './dettaglio/FormComponent.svelte'"
+      }
+    },
+    "forbidden_imports": [
+      "Dynamic imports: {#await import('./Component.svelte')}",
+      "Cross-entity component imports",
+      "Store imports in layouts (solo stato navigazione locale)"
+    ]
+  },
+
+  "directory_structure": {
+    "simple_module": {
+      "description": "Modulo con entità semplici (solo componenti)",
+      "example": {
+        "path": "mod_risorse/",
+        "structure": [
+          "Layout.svelte",
+          "ContattiLayout.svelte",
+          "ListeLayout.svelte",
+          "CampagneLayout.svelte",
+          "store.js",
+          "contatti/ListaComponent.svelte",
+          "contatti/FormComponent.svelte",
+          "liste/ListaComponent.svelte",
+          "liste/EditorComponent.svelte",
+          "campagne/DashboardComponent.svelte",
+          "campagne/ConfigComponent.svelte"
+        ]
+      }
+    },
+    "complex_module": {
+      "description": "Modulo con entità complesse (sub-layout)",
+      "example": {
+        "path": "mod_risorse/",
+        "structure": [
+          "Layout.svelte",
+          "ContattiLayout.svelte",
+          "store.js",
+          "contatti/ListaComponent.svelte",
+          "contatti/DettaglioLayout.svelte",
+          "contatti/dettaglio/InfoComponent.svelte",
+          "contatti/dettaglio/StoriaComponent.svelte",
+          "contatti/dettaglio/AzioniComponent.svelte"
+        ]
+      }
+    }
+  },
+
+  "data_flow": {
+    "navigation": {
+      "flow": "Layout.svelte -> EntityLayout -> Component",
+      "state": "currentView passed as prop or managed in layout"
+    },
+    "application_data": {
+      "flow": "store.js <-> Components",
+      "pattern": "Components read/write to centralized store"
+    },
+    "api_calls": {
+      "location": "Components only",
+      "forbidden_in": "Layouts"
+    }
+  },
+
+  "anti_patterns": {
+    "forbidden": [
+      {
+        "pattern": "dynamic_imports",
+        "example": "{#await import('./Component.svelte')}",
+        "reason": "Meno stabile, comportamento imprevedibile"
+      },
+      {
+        "pattern": "logic_in_layouts",
+        "example": "API calls, data manipulation in Layout.svelte",
+        "reason": "Layouts devono essere puri routing/visibility"
+      },
+      {
+        "pattern": "self_visibility_decision",
+        "example": "Component che decide {#if shouldShow} internamente",
+        "reason": "Visibilità compete al layout parent"
+      },
+      {
+        "pattern": "multiple_stores",
+        "example": "store.js in ogni sottocartella",
+        "reason": "Store deve essere unico e centralizzato"
+      },
+      {
+        "pattern": "deep_nesting",
+        "example": "subentity/sub-subentity/sub-sub-subentity",
+        "reason": "Max 3 livelli: module -> entity -> subentity"
+      },
+      {
+        "pattern": "cross_entity_imports",
+        "example": "contatti/ importing from liste/",
+        "reason": "Entità devono essere autonome"
+      },
+      {
+        "pattern": "wrong_naming",
+        "examples": [
+          "contatti.svelte (missing suffix)",
+          "contattiComponent.svelte (wrong case)",
+          "Contatti/ (wrong folder case)"
+        ],
+        "reason": "Naming conventions garantiscono consistenza"
+      }
+    ]
+  },
+
+  "examples": {
+    "module_layout": {
+      "file": "mod_risorse/Layout.svelte",
+      "code": "<script>\n  import ContattiLayout from './ContattiLayout.svelte';\n  import ListeLayout from './ListeLayout.svelte';\n  import CampagneLayout from './CampagneLayout.svelte';\n\n  let currentView = $state('contatti');\n</script>\n\n<nav>\n  <button onclick={() => currentView = 'contatti'}>Contatti</button>\n  <button onclick={() => currentView = 'liste'}>Liste</button>\n  <button onclick={() => currentView = 'campagne'}>Campagne</button>\n</nav>\n\n<main>\n  {#if currentView === 'contatti'}\n    <ContattiLayout />\n  {:else if currentView === 'liste'}\n    <ListeLayout />\n  {:else if currentView === 'campagne'}\n    <CampagneLayout />\n  {/if}\n</main>"
+    },
+    "entity_layout_simple": {
+      "file": "mod_risorse/ContattiLayout.svelte",
+      "code": "<script>\n  import ListaComponent from './contatti/ListaComponent.svelte';\n  import FormComponent from './contatti/FormComponent.svelte';\n\n  let showForm = $state(false);\n</script>\n\n{#if showForm}\n  <FormComponent onClose={() => showForm = false} />\n{:else}\n  <ListaComponent onAdd={() => showForm = true} />\n{/if}"
+    },
+    "entity_layout_complex": {
+      "file": "mod_risorse/ContattiLayout.svelte",
+      "code": "<script>\n  import ListaComponent from './contatti/ListaComponent.svelte';\n  import DettaglioLayout from './contatti/DettaglioLayout.svelte';\n\n  let selectedId = $state(null);\n</script>\n\n{#if selectedId}\n  <DettaglioLayout id={selectedId} onBack={() => selectedId = null} />\n{:else}\n  <ListaComponent onSelect={(id) => selectedId = id} />\n{/if}"
+    },
+    "subentity_layout": {
+      "file": "mod_risorse/contatti/DettaglioLayout.svelte",
+      "code": "<script>\n  import InfoComponent from './dettaglio/InfoComponent.svelte';\n  import StoriaComponent from './dettaglio/StoriaComponent.svelte';\n  import AzioniComponent from './dettaglio/AzioniComponent.svelte';\n\n  export let id;\n  export let onBack;\n\n  let activeTab = $state('info');\n</script>\n\n<button onclick={onBack}>Indietro</button>\n\n<nav>\n  <button onclick={() => activeTab = 'info'}>Info</button>\n  <button onclick={() => activeTab = 'storia'}>Storia</button>\n  <button onclick={() => activeTab = 'azioni'}>Azioni</button>\n</nav>\n\n{#if activeTab === 'info'}\n  <InfoComponent {id} />\n{:else if activeTab === 'storia'}\n  <StoriaComponent {id} />\n{:else if activeTab === 'azioni'}\n  <AzioniComponent {id} />\n{/if}"
+    },
+    "component": {
+      "file": "mod_risorse/contatti/ListaComponent.svelte",
+      "code": "<script>\n  import { contatti } from '../store.js';\n\n  export let onSelect;\n  export let onAdd;\n\n  async function loadContatti() {\n    const response = await fetch('/api/risorse/contatti');\n    $contatti = await response.json();\n  }\n</script>\n\n<button onclick={onAdd}>Nuovo Contatto</button>\n\n{#each $contatti as contatto}\n  <div onclick={() => onSelect(contatto.id)}>\n    {contatto.nome}\n  </div>\n{/each}"
+    },
+    "store": {
+      "file": "mod_risorse/store.js",
+      "code": "import { writable } from 'svelte/store';\n\nexport const contatti = writable([]);\nexport const liste = writable([]);\nexport const campagne = writable([]);\nexport const loading = writable(false);\nexport const error = writable(null);"
+    }
+  }
+}

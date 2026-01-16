@@ -1,3 +1,3 @@
-from .info_models import InfoResponse
+from .info_model import InfoModel
 
-__all__ = ["InfoResponse"]
+__all__ = ["InfoModel"]
