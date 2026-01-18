@@ -1,73 +1,141 @@
 API_STYLE fastapi_explicit_starlette_servlet
 
-ROUTING:
-  - use APIRouter
-  - decorators only
-  - no global app routes
+# ROUTER DECLARATION
 
-PATH CONVENTION:
-  Pattern: /api/<module_name>/<entity_name>
-
-  - module_name: nome del modulo SENZA prefisso mod_
-    esempio: mod_risorse -> risorse, mod_status -> status
-
-  - entity_name: nome dell'entità al plurale
-    esempio: contatti, liste, campagne, users
-
-  CRUD paths:
-    - LIST:   GET    /api/<module>/<entity>
-    - CREATE: POST   /api/<module>/<entity>
-    - READ:   GET    /api/<module>/<entity>/{id}
-    - UPDATE: PUT    /api/<module>/<entity>/{id}
-    - DELETE: DELETE /api/<module>/<entity>/{id}
-    - NESTED: GET    /api/<module>/<entity>/{id}/<sub_entity>
+MANDATORY PREFIX:
+  - Every module router MUST have a prefix
+  - Prefix = module name WITHOUT "mod_" prefix
+  - Pattern: mod_<name> -> prefix="/<name>"
 
   Examples:
-    /api/risorse/contatti
-    /api/risorse/contatti/{id}
-    /api/risorse/liste
-    /api/risorse/liste/{id}/contatti
-    /api/status/info
+    mod_status  -> router = APIRouter(prefix="/status", tags=["status"])
+    mod_risorse -> router = APIRouter(prefix="/risorse", tags=["risorse"])
+    mod_auth    -> router = APIRouter(prefix="/auth", tags=["auth"])
 
-HANDLERS:
-  - async only
-  - Request imported ONLY if used
-  - when Request needed: servlet-like style
-    example: data = await request.json()
-  - no Depends
-  - no Pydantic models in signature
+DECLARATION:
+```python
+router = APIRouter(prefix="/<module>", tags=["<module>"])
+```
 
-ARCHITECTURE:
-  - handlers delegate to services
-  - services return response_model dict
-  - handlers are thin HTTP layer
+# ROUTING
 
-REQUEST_BODY_PARSING:
-  - for POST/PUT: use Request parameter
-  - parse with: data = await request.json()
-  - validate with: body = InputModel(**data)
-  - servlet-like explicit parsing
+PATH CONVENTION:
+  - Paths are RELATIVE to router prefix
+  - Pattern: /<entity_name>
+  - Full URL: /api/<module>/<entity> (when mounted on /api)
 
-RESPONSES:
+  Examples:
+    @router.get("/info")           -> /status/info
+    @router.get("/contatti")       -> /risorse/contatti
+    @router.get("/contatti/{id}")  -> /risorse/contatti/{id}
+
+CRUD PATHS:
+  - LIST:   GET    /<entity>
+  - CREATE: POST   /<entity>
+  - READ:   GET    /<entity>/{id}
+  - UPDATE: PUT    /<entity>/{id}
+  - DELETE: DELETE /<entity>/{id}
+  - NESTED: GET    /<entity>/{id}/<sub_entity>
+
+# HANDLERS
+
+NAMING:
+  - camelCase: getContatti, getContattoById, createContatto
+
+ASYNC:
+  - ALL handlers must be async
+
+REQUEST USAGE:
+  - Import Request ONLY if used
+  - For body: data = await request.json()
+  - For pool: pool = request.app.state.db_pool
+  - Servlet-style explicit parsing
+
+NO DEPENDS:
+  - Do not use Depends()
+  - Do not use Pydantic in signature
+
+# ARCHITECTURE
+
+HANDLER RESPONSIBILITY:
+  - Thin HTTP layer only
+  - Delegate to services
+  - Check err flag for status code
+
+SERVICE RETURN:
+  - Services return response_model dict
+  - Handler returns JSONResponse with dict
+
+# RESPONSES
+
+TYPE:
   - JSONResponse only
-  - explicit status code required
-  - positional parameters allowed: JSONResponse(data, 200)
-  - always return complete response_model structure
+  - Explicit status code required
 
-ERROR_HANDLING:
-  - check data["err"] flag
+ERROR HANDLING:
+  - Check data["err"] flag
   - if err=True: status 503
   - if err=False: status 200
-  - return complete dict {err, log, out}
 
-FUNCTION_PARAMETERS:
-  - NO default values allowed in function signatures
-  - All parameters must be explicit
-  - Rationale: explicit over implicit
+STRUCTURE:
+  - Always return complete {err, log, out}
+
+# FUNCTION PARAMETERS
+
+RULE:
+  - NO default values
+  - All parameters explicit
 
 FORBIDDEN:
-  - response_model decorator
-  - implicit body parsing via Pydantic signature
-  - implicit status codes
-  - HTTPException
-  - unused imports
+  ✗ async def handler(request: Request = None)
+
+REQUIRED:
+  ✓ async def handler(request: Request)
+
+# FORBIDDEN PATTERNS
+
+- response_model decorator
+- implicit body parsing via Pydantic signature
+- implicit status codes
+- HTTPException
+- unused imports
+- default parameter values
+- router without prefix
+
+# COMPLETE EXAMPLE
+
+```python
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
+from .services import contatto_service
+
+router = APIRouter(prefix="/risorse", tags=["risorse"])
+
+@router.get("/contatti")
+async def getContatti(request: Request):
+    """Recupera tutti i contatti."""
+    pool = request.app.state.db_pool
+    data = await contatto_service.getAll(pool)
+    if data["err"]:
+        return JSONResponse(data, 503)
+    return JSONResponse(data, 200)
+
+@router.get("/contatti/{id}")
+async def getContattoById(request: Request, id: int):
+    """Recupera contatto per id."""
+    pool = request.app.state.db_pool
+    data = await contatto_service.getById(pool, id)
+    if data["err"]:
+        return JSONResponse(data, 503)
+    return JSONResponse(data, 200)
+
+@router.post("/contatti")
+async def createContatto(request: Request):
+    """Crea nuovo contatto."""
+    pool = request.app.state.db_pool
+    body = await request.json()
+    data = await contatto_service.create(pool, body)
+    if data["err"]:
+        return JSONResponse(data, 503)
+    return JSONResponse(data, 200)
+```

@@ -1,35 +1,54 @@
 {
   "api_style": "fastapi_explicit_starlette_servlet",
   "routing": {
-    "router": "APIRouter",
+    "router": {
+      "type": "APIRouter",
+      "prefix": {
+        "mandatory": true,
+        "pattern": "/<module_name_without_mod_prefix>",
+        "derivation": "mod_<name> -> /<name>",
+        "examples": {
+          "mod_status": "/status",
+          "mod_risorse": "/risorse",
+          "mod_auth": "/auth"
+        }
+      },
+      "tags": {
+        "mandatory": true,
+        "pattern": "[\"<module_name_without_mod_prefix>\"]",
+        "examples": ["status", "risorse", "auth"]
+      },
+      "declaration": "router = APIRouter(prefix=\"/<module>\", tags=[\"<module>\"])"
+    },
     "registration": "decorators_only",
     "allow_global_routes": false,
     "path_convention": {
-      "pattern": "/api/<module_name>/<entity_name>",
-      "module_name": "nome del modulo senza prefisso mod_ (es. mod_risorse -> risorse)",
+      "pattern": "/<entity_name>",
+      "note": "prefix is already set on router, paths are relative",
       "entity_name": "nome dell'entità al plurale (es. contatti, liste, campagne)",
+      "full_url": "/api/<module>/<entity> (when mounted on /api)",
       "examples": [
-        "/api/risorse/contatti",
-        "/api/risorse/contatti/{id}",
-        "/api/risorse/liste",
-        "/api/risorse/liste/{id}/contatti",
-        "/api/status/info"
+        "@router.get(\"/info\") -> /status/info",
+        "@router.get(\"/contatti\") -> /risorse/contatti",
+        "@router.get(\"/contatti/{id}\") -> /risorse/contatti/{id}"
       ],
       "crud_paths": {
-        "list": "/api/<module>/<entity>",
-        "create": "/api/<module>/<entity>",
-        "read": "/api/<module>/<entity>/{id}",
-        "update": "/api/<module>/<entity>/{id}",
-        "delete": "/api/<module>/<entity>/{id}",
-        "nested": "/api/<module>/<entity>/{id}/<sub_entity>"
+        "list": "GET /<entity>",
+        "create": "POST /<entity>",
+        "read": "GET /<entity>/{id}",
+        "update": "PUT /<entity>/{id}",
+        "delete": "DELETE /<entity>/{id}",
+        "nested": "GET /<entity>/{id}/<sub_entity>"
       }
     }
   },
   "handlers": {
     "async_only": true,
+    "naming": "camelCase",
     "request_usage": {
       "import_only_if_used": true,
       "use_for_body_parsing": "request.json()",
+      "use_for_pool_access": "request.app.state.db_pool",
       "servlet_style": true
     },
     "allow_depends": false,
@@ -59,7 +78,7 @@
   },
   "function_parameters": {
     "rule": "no_default_values",
-    "rationale": "explicit over implicit - all parameters must be provided explicitly",
+    "rationale": "explicit over implicit",
     "forbidden": "async def handler(request: Request = None)",
     "required": "async def handler(request: Request)"
   },
@@ -69,6 +88,26 @@
     "implicit_status_codes",
     "HTTPException",
     "unused_imports",
-    "default_parameter_values"
-  ]
+    "default_parameter_values",
+    "router_without_prefix"
+  ],
+  "example": {
+    "file": "mod_risorse/routes.py",
+    "code": [
+      "from fastapi import APIRouter, Request",
+      "from fastapi.responses import JSONResponse",
+      "from .services import contatto_service",
+      "",
+      "router = APIRouter(prefix=\"/risorse\", tags=[\"risorse\"])",
+      "",
+      "@router.get(\"/contatti\")",
+      "async def getContatti(request: Request):",
+      "    \"\"\"Recupera tutti i contatti.\"\"\"",
+      "    pool = request.app.state.db_pool",
+      "    data = await contatto_service.getAll(pool)",
+      "    if data[\"err\"]:",
+      "        return JSONResponse(data, 503)",
+      "    return JSONResponse(data, 200)"
+    ]
+  }
 }
