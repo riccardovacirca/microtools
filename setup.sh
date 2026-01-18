@@ -36,7 +36,7 @@ install_claude() {
   command -v claude >/dev/null 2>&1 || error "Claude Code installation verification failed"
 
   # Copy Claude Code configuration
-  if [ -d "/workspace/.prototype/install/.claude" ]; then
+  if [ -d "/workspace/.toolchain/prototype/.claude" ]; then
     info "Installing Claude Code configuration..."
 
     # Preserve settings.local.json if exists
@@ -45,7 +45,7 @@ install_claude() {
     fi
 
     rm -rf /workspace/.claude
-    cp -r /workspace/.prototype/install/.claude /workspace/.claude
+    cp -r /workspace/.toolchain/prototype/.claude /workspace/.claude
 
     # Restore settings.local.json
     if [ -f "/tmp/claude-settings.local.json.bak" ]; then
@@ -56,7 +56,7 @@ install_claude() {
 
     info "Claude Code configuration installed at /workspace/.claude"
   else
-    warn "Claude Code configuration not found in /workspace/.prototype/install/.claude"
+    warn "Claude Code configuration not found in /workspace/.toolchain/prototype/.claude"
   fi
 
   info "Claude Code installation completed"
@@ -68,23 +68,23 @@ install_vscode() {
   mkdir -p /workspace/.vscode
 
   # Copy VSCode configuration files from install
-  if [ -d /workspace/install/vscode ]; then
-    if [ -f /workspace/install/vscode/settings.json ]; then
-      cp /workspace/install/vscode/settings.json /workspace/.vscode/settings.json
+  if [ -d /workspace/.toolchain/prototype/vscode ]; then
+    if [ -f /workspace/.toolchain/prototype/vscode/settings.json ]; then
+      cp /workspace/.toolchain/prototype/vscode/settings.json /workspace/.vscode/settings.json
       info "  - settings.json: Editor and language settings"
     else
       warn "VSCode settings.json not found in install/vscode"
     fi
 
-    if [ -f /workspace/install/vscode/launch.json ]; then
-      cp /workspace/install/vscode/launch.json /workspace/.vscode/launch.json
+    if [ -f /workspace/.toolchain/prototype/vscode/launch.json ]; then
+      cp /workspace/.toolchain/prototype/vscode/launch.json /workspace/.vscode/launch.json
       info "  - launch.json: Debug configurations (C++ microservices)"
     else
       warn "VSCode launch.json not found in install/vscode"
     fi
 
-    if [ -f /workspace/install/vscode/tasks.json ]; then
-      cp /workspace/install/vscode/tasks.json /workspace/.vscode/tasks.json
+    if [ -f /workspace/.toolchain/prototype/vscode/tasks.json ]; then
+      cp /workspace/.toolchain/prototype/vscode/tasks.json /workspace/.vscode/tasks.json
       info "  - tasks.json: Build tasks"
     else
       warn "VSCode tasks.json not found in install/vscode"
@@ -123,16 +123,16 @@ done
 
 info "Setting up nginx+FastAPI API gateway..."
 
-# Replace install.sh with symlink to .prototype/install.sh
-if [ -f /workspace/install.sh ] && [ ! -L /workspace/install.sh ] && [ -f /workspace/.prototype/install.sh ]; then
-  info "Replacing install.sh with symbolic link to .prototype/install.sh..."
+# Replace install.sh with symlink to .toolchain/install.sh
+if [ -f /workspace/install.sh ] && [ ! -L /workspace/install.sh ] && [ -f /workspace/.toolchain/install.sh ]; then
+  info "Replacing install.sh with symbolic link to .toolchain/install.sh..."
   rm -f /workspace/install.sh
-  ln -sf .prototype/install.sh /workspace/install.sh || warn "Failed to create install.sh symlink"
+  ln -sf .toolchain/install.sh /workspace/install.sh || warn "Failed to create install.sh symlink"
 fi
 
-# Remove system, vscode, docs from workspace if install is a symlink to .prototype/install
-if [ -L /workspace/install ] && [ -d /workspace/.prototype/install ]; then
-  info "Cleaning up workspace directories (using .prototype/install as source)..."
+# Remove system, vscode, docs from workspace if install is a symlink to .toolchain/install
+if [ -L /workspace/install ] && [ -d /workspace/.toolchain/install ]; then
+  info "Cleaning up workspace directories (using .toolchain/install as source)..."
 
   if [ -d /workspace/system ] && [ ! -L /workspace/system ]; then
     rm -rf /workspace/system
@@ -151,9 +151,9 @@ if [ -L /workspace/install ] && [ -d /workspace/.prototype/install ]; then
 fi
 
 # Copy gitignore.example to .gitignore (overwrite if exists)
-if [ -f /workspace/install/gitignore.example ]; then
+if [ -f /workspace/.toolchain/prototype/gitignore.example ]; then
   info "Creating .gitignore from gitignore.example..."
-  cp /workspace/install/gitignore.example /workspace/.gitignore
+  cp /workspace/.toolchain/prototype/gitignore.example /workspace/.gitignore
   info ".gitignore created"
 else
   warn "gitignore.example not found in install directory"
@@ -239,11 +239,11 @@ else
 fi
 
 # Copy and compile microtools library (required by C++ modules)
-if [ -d /workspace/.prototype/install/lib/utils/cpp ]; then
+if [ -d /workspace/.toolchain/prototype/lib/utils/cpp ]; then
   info "Copying microtools library sources to services/utils..."
   mkdir -p /workspace/services/utils
   rm -rf /workspace/services/utils/*
-  cp -r /workspace/.prototype/install/lib/utils/cpp/* /workspace/services/utils/
+  cp -r /workspace/.toolchain/prototype/lib/utils/cpp/* /workspace/services/utils/
   info "Compiling microtools static library..."
   cd /workspace/services/utils
   mkdir -p build
@@ -263,24 +263,24 @@ if [ -d /workspace/.prototype/install/lib/utils/cpp ]; then
   fi
   cd /workspace
 else
-  warn "microtools library sources not found in .prototype/install/lib/utils/cpp"
+  warn "microtools library sources not found in .toolchain/prototype/lib/utils/cpp"
 fi
 
 # Copy Python utils library (required by API modules)
-if [ -d /workspace/.prototype/install/lib/utils/python ]; then
+if [ -d /workspace/.toolchain/prototype/lib/utils/python ]; then
   info "Copying Python utils library to api/utils..."
   mkdir -p /workspace/api/utils
   rm -rf /workspace/api/utils/*
-  cp -r /workspace/.prototype/install/lib/utils/python/* /workspace/api/utils/
+  cp -r /workspace/.toolchain/prototype/lib/utils/python/* /workspace/api/utils/
   info "Python utils library installed to /workspace/api/utils"
 else
-  warn "Python utils library not found in .prototype/install/lib/utils/python"
+  warn "Python utils library not found in .toolchain/prototype/lib/utils/python"
 fi
 
-# Copy bin directory with utilities (only if install is not a symlink to .prototype/install)
-if [ -d /workspace/install/bin ] && [ ! -L /workspace/install ]; then
+# Copy bin directory with utilities (only if install is not a symlink to .toolchain/install)
+if [ -d /workspace/.toolchain/prototype/bin ] && [ ! -L /workspace/install ]; then
   info "Copying utility scripts from install/bin..."
-  cp -r /workspace/install/bin /workspace/
+  cp -r /workspace/.toolchain/prototype/bin /workspace/
   chmod +x /workspace/bin/* 2>/dev/null || true
   info "Utility scripts copied to /workspace/bin"
 elif [ ! -d /workspace/bin ] && [ -L /workspace/install ]; then
@@ -305,10 +305,10 @@ mkdir -p /etc/s6-rc/source
 DEFAULT_ENABLED_SERVICES="uvicorn nginx redis mod_status"
 
 # Copy all service templates
-if [ -d /workspace/install/s6 ]; then
+if [ -d /workspace/.toolchain/prototype/s6 ]; then
   info "Installing all services to available directory..."
 
-  for service_dir in /workspace/install/s6/*/; do
+  for service_dir in /workspace/.toolchain/prototype/s6/*/; do
     if [ -d "$service_dir" ]; then
       service_name=$(basename "$service_dir")
 
@@ -379,19 +379,19 @@ else
   warn "install/s6 directory not found, skipping s6 service installation"
 fi
 
-# Create symlinks to bin utilities in .prototype/install/bin
-if [ -d /workspace/.prototype/install/bin ]; then
-  info "Creating symbolic links to .prototype/install/bin utilities..."
+# Create symlinks to bin utilities in .toolchain/prototype/bin
+if [ -d /workspace/.toolchain/prototype/bin ]; then
+  info "Creating symbolic links to .toolchain/prototype/bin utilities..."
 
   # Remove existing files/symlinks and create new symlinks
   rm -f /workspace/bin/mt
-  ln -sf /workspace/.prototype/install/bin/mt /workspace/bin/mt || warn "Failed to create mt symlink"
+  ln -sf /workspace/.toolchain/prototype/bin/mt /workspace/bin/mt || warn "Failed to create mt symlink"
 fi
 
 # Add /workspace/bin to system PATH
 info "Configuring system PATH..."
-if [ -f /workspace/install/system/workspace-bin.sh ]; then
-  cp /workspace/install/system/workspace-bin.sh /etc/profile.d/workspace-bin.sh
+if [ -f /workspace/.toolchain/prototype/system/workspace-bin.sh ]; then
+  cp /workspace/.toolchain/prototype/system/workspace-bin.sh /etc/profile.d/workspace-bin.sh
   chmod +x /etc/profile.d/workspace-bin.sh
   export PATH="/workspace/bin:$PATH"
   info "System PATH configured from install/system/workspace-bin.sh"
@@ -412,8 +412,8 @@ mkdir -p /var/log/redis
 mkdir -p /var/lib/redis
 
 # Configure Redis to bind to localhost and enable persistence
-if [ -f /workspace/install/redis/redis.conf ]; then
-  cp /workspace/install/redis/redis.conf /etc/redis/redis.conf
+if [ -f /workspace/.toolchain/prototype/redis/redis.conf ]; then
+  cp /workspace/.toolchain/prototype/redis/redis.conf /etc/redis/redis.conf
   info "Redis configuration copied from install/redis/redis.conf"
   info "Redis will be started automatically by s6-overlay"
 else
@@ -434,9 +434,9 @@ mkdir -p /var/log/nginx
 mkdir -p /workspace/logs
 
 # Copy database schemas from install
-if [ -d /workspace/install/database ]; then
+if [ -d /workspace/.toolchain/prototype/database ]; then
   info "Copying database schemas from install/database..."
-  cp -r /workspace/install/database /workspace/
+  cp -r /workspace/.toolchain/prototype/database /workspace/
   info "Database schemas copied to /workspace/database"
 else
   warn "install/database directory not found, skipping database schemas copy"
@@ -448,8 +448,8 @@ rm -rf /workspace/api/app 2>/dev/null || true
 
 # Copy nginx configuration from install
 info "Copying nginx configuration..."
-if [ -f /workspace/install/nginx/gateway ]; then
-  cp /workspace/install/nginx/gateway /etc/nginx/sites-available/gateway
+if [ -f /workspace/.toolchain/prototype/nginx/gateway ]; then
+  cp /workspace/.toolchain/prototype/nginx/gateway /etc/nginx/sites-available/gateway
   info "Nginx site configuration copied"
 else
   error "nginx/gateway configuration file not found in install directory"
@@ -469,7 +469,7 @@ info "Nginx configuration accessible at /workspace/conf/nginx.conf"
 info "Redis configuration accessible at /workspace/conf/redis.conf"
 
 # Copy api files and modules from install if available
-if [ -d /workspace/install/api ]; then
+if [ -d /workspace/.toolchain/prototype/api ]; then
   info "Copying api files and modules from install/api..."
 
   # Cleanup: remove existing modules and cache
@@ -478,7 +478,7 @@ if [ -d /workspace/install/api ]; then
   find /workspace/api -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 
   # Copy all files (main.py, requirements.txt, scripts, etc.)
-  for file in /workspace/install/api/*; do
+  for file in /workspace/.toolchain/prototype/api/*; do
     if [ -f "$file" ]; then
       filename=$(basename "$file")
       info "Installing file: $filename"
@@ -493,7 +493,7 @@ if [ -d /workspace/install/api ]; then
   done
 
   # Copy all module directories
-  for module_dir in /workspace/install/api/*/; do
+  for module_dir in /workspace/.toolchain/prototype/api/*/; do
     if [ -d "$module_dir" ]; then
       module_name=$(basename "$module_dir")
       info "Installing module: $module_name"
@@ -510,8 +510,8 @@ info "Gateway (uvicorn) will be started automatically by s6-overlay"
 # Copy nginx main configuration if not exists
 if [ ! -f /etc/nginx/nginx.conf ]; then
   info "Copying main nginx.conf..."
-  if [ -f /workspace/install/nginx/nginx.conf ]; then
-    cp /workspace/install/nginx/nginx.conf /etc/nginx/nginx.conf
+  if [ -f /workspace/.toolchain/prototype/nginx/nginx.conf ]; then
+    cp /workspace/.toolchain/prototype/nginx/nginx.conf /etc/nginx/nginx.conf
     info "Main nginx.conf copied"
   else
     error "nginx/nginx.conf configuration file not found in install directory"
@@ -534,16 +534,16 @@ fi
 
 # Vite dev server (disabled by default, managed by s6 if enabled)
 
-# Check if Svelte .prototype needs to be created or just updated
+# Check if Svelte .toolchain needs to be created or just updated
 PROJECT_EXISTS=false
 if [ -f "/workspace/gui/package.json" ] && [ -d "/workspace/gui/node_modules" ]; then
   PROJECT_EXISTS=true
-  info "Svelte .prototype exists, updating dependencies..."
+  info "Svelte .toolchain exists, updating dependencies..."
 else
   info "Installing Svelte with Vite..."
 fi
 
-# Remove Svelte app structure (but keep package.json and node_modules if .prototype exists)
+# Remove Svelte app structure (but keep package.json and node_modules if .toolchain exists)
 if [ -d "/workspace/gui" ]; then
   cd /workspace/gui
   rm -rf src/ public/ .vscode/
@@ -555,12 +555,12 @@ if [ -d "/workspace/gui" ]; then
   cd /workspace
 fi
 
-# Create/recreate Svelte .prototype only if needed
+# Create/recreate Svelte .toolchain only if needed
 if [ "$PROJECT_EXISTS" = "false" ]; then
   cd /workspace
   mkdir -p gui
   cd gui
-  yes | npm create vite@latest . -- --template svelte >/dev/null 2>&1 || error "Failed to create Svelte .prototype"
+  yes | npm create vite@latest . -- --template svelte >/dev/null 2>&1 || error "Failed to create Svelte .toolchain"
   npm install >/dev/null 2>&1 || error "Failed to install Svelte dependencies"
   npm install -D terser >/dev/null 2>&1 || warn "Failed to install terser"
 else
@@ -574,22 +574,22 @@ info "Cleaning default Svelte files..."
 rm -rf src/* public
 rm -f index.html
 
-# Copy example files from /workspace/install/gui
-if [ -d /workspace/install/gui ]; then
+# Copy example files from /workspace/.toolchain/prototype/gui
+if [ -d /workspace/.toolchain/prototype/gui ]; then
   info "Copying example files from install/gui..."
 
   # Copy all .svelte files to src/
-  cp -r /workspace/install/gui/*.svelte src/ 2>/dev/null || true
-  cp -r /workspace/install/gui/mod_status src/ 2>/dev/null || true
+  cp -r /workspace/.toolchain/prototype/gui/*.svelte src/ 2>/dev/null || true
+  cp -r /workspace/.toolchain/prototype/gui/mod_status src/ 2>/dev/null || true
 
   # Copy index.html to src/
-  cp /workspace/install/gui/index.html src/index.html 2>/dev/null || true
+  cp /workspace/.toolchain/prototype/gui/index.html src/index.html 2>/dev/null || true
 
   # Copy store.js to gui root (not src/)
-  cp /workspace/install/gui/store.js src/store.js 2>/dev/null || true
+  cp /workspace/.toolchain/prototype/gui/store.js src/store.js 2>/dev/null || true
 
   # Copy vite.config.js
-  cp /workspace/install/gui/vite.config.js vite.config.js 2>/dev/null || true
+  cp /workspace/.toolchain/prototype/gui/vite.config.js vite.config.js 2>/dev/null || true
 
   info "Example files copied successfully"
 else
@@ -599,8 +599,8 @@ fi
 # Copy static directory with service index.html
 info "Copying static directory with service page..."
 mkdir -p /workspace/gui/static
-if [ -f /workspace/install/gui/static/index.html ]; then
-  cp /workspace/install/gui/static/index.html /workspace/gui/static/index.html
+if [ -f /workspace/.toolchain/prototype/gui/static/index.html ]; then
+  cp /workspace/.toolchain/prototype/gui/static/index.html /workspace/gui/static/index.html
   chmod 644 /workspace/gui/static/index.html
   chown www-data:www-data /workspace/gui/static/index.html
   info "Service page copied to /workspace/gui/static/index.html"
@@ -609,11 +609,11 @@ else
 fi
 
 # Copy all Svelte module components from install/gui to gui/src
-if [ -d /workspace/install/gui ]; then
+if [ -d /workspace/.toolchain/prototype/gui ]; then
   info "Copying Svelte module components from install/gui..."
 
   # Copy all mod_* directories
-  for module_dir in /workspace/install/gui/mod_*/; do
+  for module_dir in /workspace/.toolchain/prototype/gui/mod_*/; do
     if [ -d "$module_dir" ]; then
       module_name=$(basename "$module_dir")
       info "Installing Svelte module: $module_name"
@@ -721,14 +721,14 @@ if [ "$PGSQL_ENABLED" = "y" ]; then
 fi
 
 # Copy and build mod_status microservice
-if [ -d /workspace/install/services/mod_status ]; then
+if [ -d /workspace/.toolchain/prototype/services/mod_status ]; then
   info "Installing mod_status microservice..."
 
   # Remove existing installation
   rm -rf /workspace/services/mod_status
 
   # Install
-  cp -r /workspace/install/services/mod_status /workspace/services/
+  cp -r /workspace/.toolchain/prototype/services/mod_status /workspace/services/
 
   # Build the C++ microservice
   /workspace/bin/mt service build -n mod_status || warn "Failed to build mod_status microservice"
@@ -746,7 +746,7 @@ install_vscode
 install_claude
 
 # Configure ODBC from .env settings
-if [ -f /workspace/install/odbc/odbc.ini.template ]; then
+if [ -f /workspace/.toolchain/prototype/odbc/odbc.ini.template ]; then
   info "Configuring ODBC data sources..."
   /workspace/bin/mt db conf || warn "Failed to configure ODBC"
 

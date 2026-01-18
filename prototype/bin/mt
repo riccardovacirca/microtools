@@ -73,10 +73,9 @@ Git Operations:
   mt git push                      Push changes to git repositories (workspace and project)
   mt git pull                      Pull changes from git repositories (workspace and project)
   mt git sync                      Sync git repositories (pull, commit, push)
-  mt git branch -b <name> [<repo>] Create/switch to branch and push to remote if needed
-                                   <repo>: empty=/workspace, 'microtools'=.prototype, or path
+  mt git branch -b <name> [<repo>] Create/switch to branch and push to remote if needed  
   mt git merge -b <name> [<repo>]  Merge branch into main and delete from local/remote
-                                   <repo>: empty=/workspace, 'microtools'=.prototype, or path
+                                   
 
 Module Management:
   mt module export -n <name>       Export module to tar.gz archive in dist/modules/
@@ -333,7 +332,7 @@ service_build() {
 }
 
 lib_build() {
-  LIB_SRC="/workspace/.prototype/install/lib/utils/cpp"
+  LIB_SRC="/workspace/.toolchain/prototype/lib/utils/cpp"
   LIB_DEST="/workspace/services/utils"
   LIB_LOG="/workspace/logs/libmicrotools-build.log"
 
@@ -1055,7 +1054,7 @@ check_s6_service() {
 
 # Updates a git repository
 # Arguments:
-#   $1: Directory path (e.g., /workspace or /workspace/.prototype)
+#   $1: Directory path (e.g., /workspace or /workspace/.toolchain)
 #   $2: Repository name (e.g., hello or webapp)
 update_git_repo() {
   REPO_DIR="$1"
@@ -1170,11 +1169,11 @@ git_push() {
     info "/workspace is not a git repository, skipping"
   fi
 
-  # Update /workspace/.prototype if it's a git repository
-  if [ -d "/workspace/.prototype/.git" ]; then
-    update_git_repo "/workspace/.prototype" "microtools"
+  # Update /workspace/.toolchain if it's a git repository
+  if [ -d "/workspace/.toolchain/.git" ]; then
+    update_git_repo "/workspace/.toolchain" "microtools"
   else
-    info "/workspace/.prototype is not a git repository, skipping"
+    info "/workspace/.toolchain is not a git repository, skipping"
   fi
 
   info "Git push completed"
@@ -1200,11 +1199,11 @@ git_pull() {
     info "/workspace is not a git repository, skipping"
   fi
 
-  # Pull /workspace/.prototype if it's a git repository
-  if [ -d "/workspace/.prototype/.git" ]; then
-    pull_git_repo "/workspace/.prototype" "microservice"
+  # Pull /workspace/.toolchain if it's a git repository
+  if [ -d "/workspace/.toolchain/.git" ]; then
+    pull_git_repo "/workspace/.toolchain" "microservice"
   else
-    info "/workspace/.prototype is not a git repository, skipping"
+    info "/workspace/.toolchain is not a git repository, skipping"
   fi
 
   info "Git pull completed"
@@ -1231,12 +1230,12 @@ git_sync() {
     info "/workspace is not a git repository, skipping"
   fi
 
-  # Sync /workspace/.prototype if it's a git repository
-  if [ -d "/workspace/.prototype/.git" ]; then
-    pull_git_repo "/workspace/.prototype" "microservice"
-    update_git_repo "/workspace/.prototype" "microservice"
+  # Sync /workspace/.toolchain if it's a git repository
+  if [ -d "/workspace/.toolchain/.git" ]; then
+    pull_git_repo "/workspace/.toolchain" "microservice"
+    update_git_repo "/workspace/.toolchain" "microservice"
   else
-    info "/workspace/.prototype is not a git repository, skipping"
+    info "/workspace/.toolchain is not a git repository, skipping"
   fi
 
   info "Git sync completed"
@@ -1245,7 +1244,7 @@ git_sync() {
 # Creates or switches to a branch and pushes to remote if needed
 # Arguments:
 #   $1: Branch name
-#   $2: Repository name (optional: empty=workspace, 'microtools'=.prototype, or custom path)
+#   $2: Repository name (optional: empty=workspace, 'microtools'=.toolchain, or custom path)
 git_branch() {
   BRANCH_NAME="$1"
   REPO_SPEC="$2"
@@ -1264,8 +1263,8 @@ git_branch() {
     REPO_DIR="/workspace"
     REPO_NAME="${PROJECT_NAME}"
   elif [ "$REPO_SPEC" = "microtools" ]; then
-    # microtools: /workspace/.prototype
-    REPO_DIR="/workspace/.prototype"
+    # microtools: /workspace/.toolchain
+    REPO_DIR="/workspace/.toolchain"
     REPO_NAME="microtools"
   else
     # Custom path
@@ -1322,7 +1321,7 @@ git_branch() {
 # Merges a branch into main and deletes it from local and remote
 # Arguments:
 #   $1: Branch name
-#   $2: Repository name (optional: empty=workspace, 'microtools'=.prototype, or custom path)
+#   $2: Repository name (optional: empty=workspace, 'microtools'=.toolchain, or custom path)
 git_merge() {
   BRANCH_NAME="$1"
   REPO_SPEC="$2"
@@ -1346,8 +1345,8 @@ git_merge() {
     REPO_DIR="/workspace"
     REPO_NAME="${PROJECT_NAME}"
   elif [ "$REPO_SPEC" = "microtools" ]; then
-    # microtools: /workspace/.prototype
-    REPO_DIR="/workspace/.prototype"
+    # microtools: /workspace/.toolchain
+    REPO_DIR="/workspace/.toolchain"
     REPO_NAME="microtools"
   else
     # Custom path
@@ -1722,7 +1721,7 @@ db_configure_odbc() {
   info "Configuring ODBC from .env settings..."
 
   # Check template exists
-  TEMPLATE_FILE="/workspace/install/odbc/odbc.ini.template"
+  TEMPLATE_FILE="/workspace/.toolchain/prototype/odbc/odbc.ini.template"
   if [ ! -f "$TEMPLATE_FILE" ]; then
     error "ODBC template not found: $TEMPLATE_FILE"
   fi

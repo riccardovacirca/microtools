@@ -2,13 +2,16 @@
   "dsl_name": "microtools_framework_module",
   "version": "1.0",
   "description": "DSL per la struttura di un modulo del framework Microtools",
-
   "definition": {
     "module": "Unita funzionale autonoma che attraversa tutti i livelli dell'architettura Microtools",
-    "components": ["api", "gui", "microservices", "database"],
+    "components": [
+      "api",
+      "gui",
+      "microservices",
+      "database"
+    ],
     "autonomy": "Ogni modulo e indipendente, esportabile e importabile"
   },
-
   "structure": {
     "api": {
       "location": "/workspace/api/mod_<MODULE_NAME>/",
@@ -71,7 +74,6 @@
       }
     }
   },
-
   "microservice_binding": {
     "cardinality": {
       "microservice_to_module": "N:1 - ogni microservizio appartiene a un solo modulo",
@@ -81,19 +83,29 @@
     "no_sharing": "I microservizi non sono mai condivisi tra moduli diversi",
     "isolation": "Se piu moduli necessitano funzionalita simili, duplicare il microservizio o implementare logica condivisa a livello API Python"
   },
-
   "naming_conventions": {
     "module_name": {
       "pattern": "mod_<name>",
       "style": "lowercase_with_underscores",
-      "examples": ["mod_status", "mod_alerts", "mod_users"]
+      "examples": [
+        "mod_status",
+        "mod_alerts",
+        "mod_users"
+      ]
     },
     "api_entities": {
       "pattern": "<function>_<entity>.py",
       "rule": "Il nome riflette la funzione specifica, non il nome del modulo",
       "examples": {
-        "good": ["info_service.py", "alert_adapter.py", "user_repository.py"],
-        "bad": ["status_service.py (troppo generico)", "mod_status_adapter.py (ridondante)"]
+        "good": [
+          "info_service.py",
+          "alert_adapter.py",
+          "user_repository.py"
+        ],
+        "bad": [
+          "status_service.py (troppo generico)",
+          "mod_status_adapter.py (ridondante)"
+        ]
       }
     },
     "gui_entities": {
@@ -102,17 +114,18 @@
     },
     "microservice_entities": {
       "env_vars": "MICROSERVICE_MOD_<MODULE_NAME>_<PARAM>",
-      "examples": ["MICROSERVICE_MOD_STATUS_HOST", "MICROSERVICE_MOD_STATUS_PORT"]
+      "examples": [
+        "MICROSERVICE_MOD_STATUS_HOST",
+        "MICROSERVICE_MOD_STATUS_PORT"
+      ]
     }
   },
-
   "data_flow": {
     "request_path": "Gateway -> API -> Route -> Service -> Adapter -> Microservice",
     "response_path": "Microservice -> Adapter -> Service -> Route -> Gateway",
     "database_path": "Route -> Service -> Repository -> Database",
     "gui_path": "GUI -> Gateway -> API"
   },
-
   "configuration": {
     "env_file": "/workspace/.env",
     "module_env_example": "/workspace/services/mod_<MODULE_NAME>/.env.example",
@@ -122,26 +135,36 @@
       "DB_": "Variabili per database"
     }
   },
-
   "module_lifecycle": {
     "export": {
       "command": "mt module export -n <module_name>",
       "output": "/workspace/dist/modules/<module_name>.tar.gz",
-      "includes": ["api", "database", "gui", "services", "module.json"]
+      "includes": [
+        "api",
+        "database",
+        "gui",
+        "services",
+        "module.json"
+      ]
     },
     "import": {
       "command": "mt module import -n <module_name> [--force]",
       "source": "/workspace/dist/modules/<module_name>.tar.gz",
-      "post_actions": ["Installazione dipendenze Python", "Build microservizio C++", "Installazione schema database"]
+      "post_actions": [
+        "Installazione dipendenze Python",
+        "Build microservizio C++",
+        "Installazione schema database"
+      ]
     }
   },
-
   "minimal_module": {
     "description": "Modulo minimo con solo componente API",
-    "required": ["api/mod_<MODULE_NAME>/routes.py", "api/mod_<MODULE_NAME>/services/"],
+    "required": [
+      "api/mod_<MODULE_NAME>/routes.py",
+      "api/mod_<MODULE_NAME>/services/"
+    ],
     "use_case": "Modulo che espone solo logica Python senza microservizi, GUI o database"
   },
-
   "full_module": {
     "description": "Modulo completo con tutti i componenti",
     "structure": [
@@ -152,7 +175,6 @@
     ],
     "use_case": "Modulo autonomo con frontend, backend, microservizi e persistenza"
   },
-
   "forbidden_patterns": [
     "Microservizi condivisi tra moduli",
     "Dipendenze trasversali tra microservizi di moduli diversi",
@@ -160,24 +182,44 @@
     "GUI che chiama direttamente microservizi (deve passare per API)",
     "Repository in microservizi C++ (accesso DB solo via API Python)"
   ],
-
   "related_dsl": {
-    "base_path": "/workspace/.prototype/install/docs/dsl/",
+    "base_path": "/workspace/.toolchain/prototype/docs/dsl/",
     "api_component": {
-      "python_module": ["python_module.json", "python_module.md"],
-      "routes": ["python_module_route.json", "python_module_route.md"],
-      "services": ["python_module_service.json", "python_module_service.md"],
-      "adapters": ["python_module_adapter.json", "python_module_adapter.md"],
-      "repositories": ["python_module_repository.json", "python_module_repository.md"],
-      "python_classes": ["python_class.json", "python_class.md"]
+      "python_module": [
+        "python_module.json",
+        "python_module.md"
+      ],
+      "routes": [
+        "python_module_route.json",
+        "python_module_route.md"
+      ],
+      "services": [
+        "python_module_service.json",
+        "python_module_service.md"
+      ],
+      "adapters": [
+        "python_module_adapter.json",
+        "python_module_adapter.md"
+      ],
+      "repositories": [
+        "python_module_repository.json",
+        "python_module_repository.md"
+      ],
+      "python_classes": [
+        "python_class.json",
+        "python_class.md"
+      ]
     },
     "gui_component": {
       "svelte_gui": "PROJECT.md sezione microtools_svelte_gui"
     },
     "microservices_component": {
-      "cpp_classes": ["cpp_class.json", "cpp_class.md"],
+      "cpp_classes": [
+        "cpp_class.json",
+        "cpp_class.md"
+      ],
       "cpp_style": "PROJECT.md sezione microtools_cpp_style"
     },
-    "project_documentation": "/workspace/.prototype/PROJECT.md"
+    "project_documentation": "/workspace/.toolchain/PROJECT.md"
   }
 }

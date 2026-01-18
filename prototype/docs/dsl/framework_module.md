@@ -193,4 +193,4 @@ Ogni componente del modulo fa riferimento a DSL specifici.
 
 ### Percorso DSL
 
-Tutti i file DSL sono in: `/workspace/.prototype/install/docs/dsl/`
+Tutti i file DSL sono in: `/workspace/.toolchain/prototype/docs/dsl/`

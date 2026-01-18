@@ -1,2 +1,0 @@
-/usr/bin/ar qc libmicrotools.a CMakeFiles/microtools.dir/DB.cpp.o CMakeFiles/microtools.dir/Env.cpp.o CMakeFiles/microtools.dir/File.cpp.o CMakeFiles/microtools.dir/HttpRequest.cpp.o CMakeFiles/microtools.dir/HttpResponse.cpp.o CMakeFiles/microtools.dir/Json.cpp.o CMakeFiles/microtools.dir/Logger.cpp.o CMakeFiles/microtools.dir/Redis.cpp.o CMakeFiles/microtools.dir/usr/local/src/nanodbc/nanodbc.cpp.o
-/usr/bin/ranlib libmicrotools.a

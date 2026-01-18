@@ -124,76 +124,75 @@ create_dev_container() {
 }
 
 # Reorganizes project structure
-# - Creates '.prototype/' directory
-# - Moves .git/, setup.sh, install.sh, install/ into .prototype/
+# - Creates '.toolchain/' directory
+# - Moves .git/, setup.sh, install.sh, install/ into .toolchain/
 # - Creates symlinks for install/ and setup.sh in current directory
 set_project_structure() {
   info "Setting project structure..."
 
   # Skip if already reorganized
-  if [ -d ".prototype" ] && [ -L "install" ] && [ -L "setup.sh" ]; then
+  if [ -d ".toolchain" ] && [ -L "install" ] && [ -L "setup.sh" ]; then
     info "Project already reorganized"
     return 0
   fi
 
-  # Create .prototype directory
-  mkdir -p .prototype
+  # Create .toolchain directory
+  mkdir -p .toolchain
 
   # Move .git if exists
   if [ -d ".git" ]; then
-    info "Moving .git to .prototype/"
-    mv .git .prototype/ || warn "Failed to move .git"
+    info "Moving .git to .toolchain/"
+    mv .git .toolchain/ || warn "Failed to move .git"
   fi
 
   # Copy install.sh
   if [ -f "install.sh" ]; then
-    info "Copying install.sh to .prototype/"
-    cp install.sh .prototype/
+    info "Copying install.sh to .toolchain/"
+    cp install.sh .toolchain/
   fi
 
   # Move setup.sh
   if [ -f "setup.sh" ]; then
-    info "Moving setup.sh to .prototype/"
-    cp setup.sh .prototype/
+    info "Moving setup.sh to .toolchain/"
+    cp setup.sh .toolchain/
     rm -f setup.sh
   fi
 
-  # Move install directory
-  if [ -d "install" ]; then
-    info "Moving install/ to .prototype/"
-    cp -r install .prototype/
-    rm -rf install
+  # Move prototype directory
+  if [ -d "prototype" ]; then
+    info "Moving prototype/ to .toolchain/"
+    cp -r prototype .toolchain/
+    rm -rf prototype
   fi
 
   # Move release directory
   if [ -d "release" ]; then
-    info "Moving release/ to .prototype/"
-    cp -r release .prototype/
+    info "Moving release/ to .toolchain/"
+    cp -r release .toolchain/
     rm -rf release
   fi
 
   # Move Dockerfile
   if [ -f "Dockerfile" ]; then
-    info "Moving Dockerfile to .prototype/"
-    mv Dockerfile .prototype/
+    info "Moving Dockerfile to .toolchain/"
+    mv Dockerfile .toolchain/
   fi
 
   # Move PROJECT.md
   if [ -f "PROJECT.md" ]; then
-    info "Moving PROJECT.md to .prototype/"
-    mv PROJECT.md .prototype/
+    info "Moving PROJECT.md to .toolchain/"
+    mv PROJECT.md .toolchain/
   fi
 
   # Move TODO.md
   if [ -f "TODO.md" ]; then
-    info "Moving TODO.md to .prototype/"
-    mv TODO.md .prototype/
+    info "Moving TODO.md to .toolchain/"
+    mv TODO.md .toolchain/
   fi
 
   # Create symlinks
   info "Creating symbolic links..."
-  ln -sf .prototype/install install || error "Failed to create install symlink"
-  ln -sf .prototype/setup.sh setup.sh || error "Failed to create setup.sh symlink"
+  ln -sf .toolchain/setup.sh setup.sh || error "Failed to create setup.sh symlink"
 
   info "Done."
 }

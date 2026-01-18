@@ -48,7 +48,7 @@ Framework per applicazioni modulari basato su **architettura a 5 livelli**:
 
 **Struttura:**
 
-* **Template**: `/workspace/install/s6/<service>/run`
+* **Template**: `/workspace/.toolchain/prototype/s6/<service>/run`
   Configurazione del servizio, copiata da `setup.sh`, include il caricamento di `.env`
 
 * **Servizi disponibili**: `/etc/services.d.available/<service>/`
@@ -101,13 +101,13 @@ fi
 
 **Componenti aggiuntivi:**
 
-* `.prototype` → sorgente framework (repo Git dedicato)
+* `.toolchain` → sorgente framework (repo Git dedicato)
 * `install` → symlink alla cartella di installazione
 * `install.sh`, `setup.sh` → symlink agli script del framework
 
 **Versionamento:**
 
-* Root progetto e `.prototype` hanno **repository Git separati**
+* Root progetto e `.toolchain` hanno **repository Git separati**
 * Aggiornamenti distinti: framework vs istanza applicativa
 
 **Gestione progetto:**
@@ -631,11 +631,11 @@ services. routes.py, repositories, adapters e models sono di supporto ai
 services.
 
 **DSL di riferimento:**
-- Architettura modulo: `/workspace/.prototype/install/docs/dsl/python_module.json` e `.md`
-- Adapters: `/workspace/.prototype/install/docs/dsl/python_module_adapter.json` e `.md`
-- Services: `/workspace/.prototype/install/docs/dsl/python_module_service.json` e `.md`
-- Routes: `/workspace/.prototype/install/docs/dsl/python_module_route.json` e `.md`
-- Repositories: `/workspace/.prototype/install/docs/dsl/python_module_repository.json` e `.md`
+- Architettura modulo: `/workspace/.toolchain/prototype/docs/dsl/python_module.json` e `.md`
+- Adapters: `/workspace/.toolchain/prototype/docs/dsl/python_module_adapter.json` e `.md`
+- Services: `/workspace/.toolchain/prototype/docs/dsl/python_module_service.json` e `.md`
+- Routes: `/workspace/.toolchain/prototype/docs/dsl/python_module_route.json` e `.md`
+- Repositories: `/workspace/.toolchain/prototypepe/docs/dsl/python_module_repository.json` e `.md`
 
 Naming: I nomi di services, models, repositories e adapters devono riflettere
 la funzione specifica svolta, non il nome del modulo. Usare il pattern
@@ -677,7 +677,7 @@ Convenzioni naming:
 
 #### Service
 
-**DSL:** `/workspace/.prototype/install/docs/dsl/python_module_service.json` e `.md`
+**DSL:** `/workspace/.toolchain/prototypepe/docs/dsl/python_module_service.json` e `.md`
 
 Questa entità applicativa usa due tipi di funzione: funzioni applicative e
 funzioni helper.
@@ -761,7 +761,7 @@ class OrderResult(BaseModel):
 
 #### Routes
 
-**DSL:** `/workspace/.prototype/install/docs/dsl/python_module_route.json` e `.md`
+**DSL:** `/workspace/.toolchain/prototype/docs/dsl/python_module_route.json` e `.md`
 
 **Responsabilità:**
 - HTTP layer only (stile servlet-like)
@@ -789,7 +789,7 @@ async def info_handler():
 
 #### Repositories
 
-**DSL:** `/workspace/.prototype/install/docs/dsl/python_module_repository.json` e `.md`
+**DSL:** `/workspace/.toolchain/prototype/docs/dsl/python_module_repository.json` e `.md`
 
 **Responsabilità:**
 - Solo esecuzione SQL, nessuna business logic
@@ -815,7 +815,7 @@ def insert(db: DB, data: dict) -> int:
 
 #### Adapters
 
-**DSL:** `/workspace/.prototype/install/docs/dsl/python_module_adapter.json` e `.md`
+**DSL:** `/workspace/.toolchain/prototype/docs/dsl/python_module_adapter.json` e `.md`
 
 **Responsabilità:**
 - Solo I/O verso servizi esterni HTTP

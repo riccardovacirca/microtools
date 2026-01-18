@@ -1,7 +1,0 @@
-/workspace/.prototype/install/services/utils/build/CMakeFiles/microtools.dir
-/workspace/.prototype/install/services/utils/build/CMakeFiles/edit_cache.dir
-/workspace/.prototype/install/services/utils/build/CMakeFiles/rebuild_cache.dir
-/workspace/.prototype/install/services/utils/build/CMakeFiles/list_install_components.dir
-/workspace/.prototype/install/services/utils/build/CMakeFiles/install.dir
-/workspace/.prototype/install/services/utils/build/CMakeFiles/install/local.dir
-/workspace/.prototype/install/services/utils/build/CMakeFiles/install/strip.dir

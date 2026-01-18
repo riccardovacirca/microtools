@@ -9,7 +9,7 @@
 
 - [OK]
   Verificare che mod_status sia conforme al dsl
-  /workspace/.prototype/install/docs/dsl/python_models.json.
+  /workspace/.toolchain/prototype/docs/dsl/python_models.json.
 
 - [OK]
   Il setup dovrebbe installare gunicorn accanto a uvicorn e configurarli su
@@ -65,7 +65,7 @@
 - [OK]
   modificare il microservizio c++ mod_status in modo che verifichi l'esistenza
   di una chiave app_status su redis corrispondente al recod sql inserito
-  mediante /workspace/.prototype/install/database/mod_status/sqlite3/data.sql.
+  mediante /workspace/.toolchain/prototype/database/mod_status/sqlite3/data.sql.
   se la chiave esiste legge il valore e restituisce il dato opportunamente
   serializzato in json al client altrimenti apre una connessione con il db,
   legge il record dal database, genera la chiave app_status con il record letto
@@ -91,17 +91,17 @@
   Lo script setup.sh a partire dalla riga 237 provvede ad installare i servizi
   gestiti da s6. Verificare se:
   > Uvicorn è denominato api
-  > Gunicorn è completamente gestito mediante il contenuto di /workspace/.prototype/install/s6/gunicorn
-  > I servizi attualmente gestiti corrispondono a quelli definiti in /workspace/.prototype/install/s6
-  > Per tutti i servizi definiti in /workspace/.prototype/install/s6 è assicurata
+  > Gunicorn è completamente gestito mediante il contenuto di /workspace/.toolchain/prototype/s6/gunicorn
+  > I servizi attualmente gestiti corrispondono a quelli definiti in /workspace/.toolchain/prototype/s6
+  > Per tutti i servizi definiti in /workspace/.toolchain/prototype/s6 è assicurata
     la persistenza al riavvio del container
-  > gli script /workspace/.prototype/install/api/start.sh e /workspace/.prototype/install/api/stop.sh
+  > gli script /workspace/.toolchain/prototype/api/start.sh e /workspace/.toolchain/prototype/api/stop.sh
     non sono più necessari nella attuale gestione dei servizi
 
 - [OK]
   Rimuovere gli script obsoleti:
-  > /workspace/.prototype/install/api/start.sh
-  > /workspace/.prototype/install/api/stop.sh
+  > /workspace/.toolchain/prototype/api/start.sh
+  > /workspace/.toolchain/prototype/api/stop.sh
   Nella gestione s6 rinominare api in uvicorn in modo  
   che ci sia corrispondenza tra il nome e il servizio effettivamente gestito
 
@@ -116,9 +116,9 @@
   Il setup di claude con setup.sh deve copiare la cartella .claude in /workspace
 
 - [OK]
-  Verificare se nella gui mod_status dipende da /workspace/.prototype/install/gui/mod_home
+  Verificare se nella gui mod_status dipende da /workspace/.toolchain/prototype/gui/mod_home
   Se non esiste nessuna dipendenza rimuovere mod_home e includere mod_status
-  in /workspace/.prototype/install/gui/Layout.svelte al suo posto
+  in /workspace/.toolchain/prototype/gui/Layout.svelte al suo posto
 
 - [OK]
   rinominare il progetto in microtools
@@ -146,17 +146,17 @@
   implementato durante la procedura di setup:
   
   workspace/
-  '--> .prototype/
-  |    '--> install/
+  '--> .toolchain/
+  |    '--> prototype/
   |         '--> lib/
   |              '--> cpp/
   |              '--> python/
   '--> api/
   |    '--> lib/
-  |         '--> microtools/ (ln -s to /workspace/.prototype/install/lib/python)
+  |         '--> microtools/ (ln -s to /workspace/.toolchain/prototype/lib/python)
   '--> service
   |    '--> lib/
-  |         '--> microtools/ (ln -s to /workspace/.prototype/install/lib/cpp)
+  |         '--> microtools/ (ln -s to /workspace/.toolchain/prototype/lib/cpp)
 
   Il path /workspace/service/lib/microtools/ potrebbe essere aggiunto al path di
   sistema per permettere di trovare il file microtools.a durante la procedura di
@@ -182,12 +182,12 @@
 
 - Implementare la logica GUI/FastAPI via SSE + FastAPI/Microservice via WS
 
-- L'installazione corrente di fastAPI nella cartella /workspace/api avviene durante la procedura di setup a carico del file setup.sh . questa installazione prevede una struttura modulare del progetto fastAPI . i moduli come ad esempio mod_status devono usare una libreria comune. attualmente stiamo migrando questa libreria. in precedenza questa libreria era implementata nella cartella /workspace/api/common.backup ma adesso la decisione è quella di utilizzare la libreria presente in /workspace/.prototype/install/lib/utils/python così come avviene per la libreria cpp anche questa libreria dovrebbe essere copiata dalla sua posizione attuale che è la posizione di origine nella posizione /workspace/api/utils e utilizzata da questa posizione. questa copia deve avvenire durante la procedura di setup eseguita dal file setup.sh. tutti i moduli dovrebbero usare gli script di questa libreria per le operazioni comuni che per il momento sono parzialmente implementate. Attualmente infatti i moduli python in apii sono solo parzialmente funzionanti perchè la  libreria è ancora incompleta. per il momento occupiamoci del setup che copia la libreria poi implementeremo e correggeremo i moduli
+- L'installazione corrente di fastAPI nella cartella /workspace/api avviene durante la procedura di setup a carico del file setup.sh . questa installazione prevede una struttura modulare del progetto fastAPI . i moduli come ad esempio mod_status devono usare una libreria comune. attualmente stiamo migrando questa libreria. in precedenza questa libreria era implementata nella cartella /workspace/api/common.backup ma adesso la decisione è quella di utilizzare la libreria presente in /workspace/.toolchain/prototype/lib/utils/python così come avviene per la libreria cpp anche questa libreria dovrebbe essere copiata dalla sua posizione attuale che è la posizione di origine nella posizione /workspace/api/utils e utilizzata da questa posizione. questa copia deve avvenire durante la procedura di setup eseguita dal file setup.sh. tutti i moduli dovrebbero usare gli script di questa libreria per le operazioni comuni che per il momento sono parzialmente implementate. Attualmente infatti i moduli python in apii sono solo parzialmente funzionanti perchè la  libreria è ancora incompleta. per il momento occupiamoci del setup che copia la libreria poi implementeremo e correggeremo i moduli
 
 - rimuovere il link simbolico a install e modificare tutti i percorsi in
   setup.sh, install.sh, e bin/mt
 
-- rinominare .prototype in .microtools e install in prototype
+- rinominare .toolchain in .microtools e install in prototype
   in modo da avere una struttura .microtools/prototype che rappresenta il
   prototipo della applicazione
 
@@ -197,7 +197,7 @@
   allo stesso livello di setup e spostare la cartella release dentro
   .microtools/prototype/release aggiornando i percorsi in modo da esprimere il concetto di un prototipo della release
 
-- rinominare /Users/riccardo/hello/.prototype/PROJECT.md in README.md
+- rinominare /Users/riccardo/hello/.toolchain/PROJECT.md in README.md
   aggiungere un file LICENSE
 
 - eseguire una revisione manuale di install.sh setup.sh release.sh e cmd
