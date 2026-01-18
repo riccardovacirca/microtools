@@ -55,11 +55,11 @@ create_env_file() {
   JWT_SECRET=$(openssl rand -hex 32 2>/dev/null || echo "change-this-secret-key-in-production-$(date +%s)")
 
   # Copy template and substitute placeholders
-  if [ ! -f install/env.example ]; then
-    error "install/env.example not found"
+  if [ ! -f prototype/env.example ]; then
+    error "prototype/env.example not found"
   fi
 
-  cp install/env.example .env
+  cp prototype/env.example .env
   sed_inplace "s|{{PROJECT_NAME}}|$PROJECT_NAME|g" .env
   sed_inplace "s|{{JWT_SECRET}}|$JWT_SECRET|g" .env
   set -a  # Enable auto-export
@@ -125,8 +125,8 @@ create_dev_container() {
 
 # Reorganizes project structure
 # - Creates '.toolchain/' directory
-# - Moves .git/, setup.sh, install.sh, install/ into .toolchain/
-# - Creates symlinks for install/ and setup.sh in current directory
+# - Moves .git/, setup.sh, install.sh, prototype/ into .toolchain/
+# - Creates symlinks for prototype/ and setup.sh in current directory
 set_project_structure() {
   info "Setting project structure..."
 

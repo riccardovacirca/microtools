@@ -73,26 +73,26 @@ install_vscode() {
       cp /workspace/.toolchain/prototype/vscode/settings.json /workspace/.vscode/settings.json
       info "  - settings.json: Editor and language settings"
     else
-      warn "VSCode settings.json not found in install/vscode"
+      warn "VSCode settings.json not found in prototype/vscode"
     fi
 
     if [ -f /workspace/.toolchain/prototype/vscode/launch.json ]; then
       cp /workspace/.toolchain/prototype/vscode/launch.json /workspace/.vscode/launch.json
       info "  - launch.json: Debug configurations (C++ microservices)"
     else
-      warn "VSCode launch.json not found in install/vscode"
+      warn "VSCode launch.json not found in prototype/vscode"
     fi
 
     if [ -f /workspace/.toolchain/prototype/vscode/tasks.json ]; then
       cp /workspace/.toolchain/prototype/vscode/tasks.json /workspace/.vscode/tasks.json
       info "  - tasks.json: Build tasks"
     else
-      warn "VSCode tasks.json not found in install/vscode"
+      warn "VSCode tasks.json not found in prototype/vscode"
     fi
 
     info "VSCode configuration created at /workspace/.vscode/"
   else
-    error "install/vscode directory not found"
+    error "prototype/vscode directory not found"
   fi
 }
 
@@ -279,7 +279,7 @@ fi
 
 # Copy bin directory with utilities (only if install is not a symlink to .toolchain/install)
 if [ -d /workspace/.toolchain/prototype/bin ] && [ ! -L /workspace/install ]; then
-  info "Copying utility scripts from install/bin..."
+  info "Copying utility scripts from prototype/bin..."
   cp -r /workspace/.toolchain/prototype/bin /workspace/
   chmod +x /workspace/bin/* 2>/dev/null || true
   info "Utility scripts copied to /workspace/bin"
@@ -376,7 +376,7 @@ if [ -d /workspace/.toolchain/prototype/s6 ]; then
   info "Enabled services: $DEFAULT_ENABLED_SERVICES"
   info "Disabled services available in /etc/services.d.available/"
 else
-  warn "install/s6 directory not found, skipping s6 service installation"
+  warn "prototype/s6 directory not found, skipping s6 service installation"
 fi
 
 # Create symlinks to bin utilities in .toolchain/prototype/bin
@@ -394,9 +394,9 @@ if [ -f /workspace/.toolchain/prototype/system/workspace-bin.sh ]; then
   cp /workspace/.toolchain/prototype/system/workspace-bin.sh /etc/profile.d/workspace-bin.sh
   chmod +x /etc/profile.d/workspace-bin.sh
   export PATH="/workspace/bin:$PATH"
-  info "System PATH configured from install/system/workspace-bin.sh"
+  info "System PATH configured from prototype/system/workspace-bin.sh"
 else
-  error "workspace-bin.sh not found in install/system"
+  error "workspace-bin.sh not found in prototype/system"
 fi
 
 # Configure shell aliases and timezone
@@ -414,10 +414,10 @@ mkdir -p /var/lib/redis
 # Configure Redis to bind to localhost and enable persistence
 if [ -f /workspace/.toolchain/prototype/redis/redis.conf ]; then
   cp /workspace/.toolchain/prototype/redis/redis.conf /etc/redis/redis.conf
-  info "Redis configuration copied from install/redis/redis.conf"
+  info "Redis configuration copied from prototype/redis/redis.conf"
   info "Redis will be started automatically by s6-overlay"
 else
-  error "redis.conf not found in install/redis"
+  error "redis.conf not found in prototype/redis"
 fi
 
 # Ensure nginx directories exist
@@ -435,11 +435,11 @@ mkdir -p /workspace/logs
 
 # Copy database schemas from install
 if [ -d /workspace/.toolchain/prototype/database ]; then
-  info "Copying database schemas from install/database..."
+  info "Copying database schemas from prototype/database..."
   cp -r /workspace/.toolchain/prototype/database /workspace/
   info "Database schemas copied to /workspace/database"
 else
-  warn "install/database directory not found, skipping database schemas copy"
+  warn "prototype/database directory not found, skipping database schemas copy"
 fi
 
 # Create Python FastAPI application structure
@@ -470,7 +470,7 @@ info "Redis configuration accessible at /workspace/conf/redis.conf"
 
 # Copy api files and modules from install if available
 if [ -d /workspace/.toolchain/prototype/api ]; then
-  info "Copying api files and modules from install/api..."
+  info "Copying api files and modules from prototype/api..."
 
   # Cleanup: remove existing modules and cache
   rm -rf /workspace/api/mod_*
@@ -501,7 +501,7 @@ if [ -d /workspace/.toolchain/prototype/api ]; then
     fi
   done
 else
-  info "No install/api directory found, skipping api installation"
+  info "No prototype/api directory found, skipping api installation"
 fi
 
 # Gateway will be started automatically by s6-overlay
@@ -576,7 +576,7 @@ rm -f index.html
 
 # Copy example files from /workspace/.toolchain/prototype/gui
 if [ -d /workspace/.toolchain/prototype/gui ]; then
-  info "Copying example files from install/gui..."
+  info "Copying example files from prototype/gui..."
 
   # Copy all .svelte files to src/
   cp -r /workspace/.toolchain/prototype/gui/*.svelte src/ 2>/dev/null || true
@@ -593,7 +593,7 @@ if [ -d /workspace/.toolchain/prototype/gui ]; then
 
   info "Example files copied successfully"
 else
-  warn "install/gui directory not found, using default Vite template"
+  warn "prototype/gui directory not found, using default Vite template"
 fi
 
 # Copy static directory with service index.html
@@ -605,12 +605,12 @@ if [ -f /workspace/.toolchain/prototype/gui/static/index.html ]; then
   chown www-data:www-data /workspace/gui/static/index.html
   info "Service page copied to /workspace/gui/static/index.html"
 else
-  warn "Service page not found in install/gui/static, skipping"
+  warn "Service page not found in prototype/gui/static, skipping"
 fi
 
-# Copy all Svelte module components from install/gui to gui/src
+# Copy all Svelte module components from prototype/gui to gui/src
 if [ -d /workspace/.toolchain/prototype/gui ]; then
-  info "Copying Svelte module components from install/gui..."
+  info "Copying Svelte module components from prototype/gui..."
 
   # Copy all mod_* directories
   for module_dir in /workspace/.toolchain/prototype/gui/mod_*/; do
@@ -736,7 +736,7 @@ if [ -d /workspace/.toolchain/prototype/services/mod_status ]; then
   # Microservice will be started by s6 if enabled
   info "mod_status built successfully. Will be enabled later in setup."
 else
-  warn "install/services/mod_status not found, skipping microservice installation"
+  warn "prototype/services/mod_status not found, skipping microservice installation"
 fi
 
 # Setup VSCode configuration
