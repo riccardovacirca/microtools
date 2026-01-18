@@ -1,131 +1,172 @@
 {
   "dsl_name": "microtools_python_class_style",
-  "version": "1.0",
+  "version": "2.0",
   "description": "DSL per lo stile di codifica delle classi Python utility",
 
   "naming_conventions": {
     "classes": {
       "style": "PascalCase",
-      "examples": ["DB", "DBConnPool", "Env", "Record", "Recordset"]
+      "examples": ["DB", "DBConnPool", "Env", "Redis"]
     },
     "methods": {
-      "style": "camelCase",
-      "examples": ["connect()", "cursorOpen()", "selectAll()", "isConnected()"]
+      "public": {
+        "style": "camelCase",
+        "examples": ["acquire()", "release()", "hasConnection()", "cursorOpen()", "getPoolStatus()"]
+      },
+      "private": {
+        "style": "_camelCase",
+        "examples": ["_detectDriver()", "_buildConfig()", "_createEngine()", "_stripQuotes()"]
+      }
     },
-    "public_attributes": {
-      "style": "camelCase",
-      "examples": ["connection", "cursor", "pool", "cursorResult"]
+    "attributes": {
+      "style": "_camelCase (all private)",
+      "examples": ["_connection", "_pool", "_cursor", "_cursorResult", "_columns", "_client"]
     },
-    "private_attributes": {
-      "style": "camelCase_with_leading_underscore",
-      "examples": ["_cursorResult", "_currentRowIndex", "_lastRowcount"]
+    "local_variables": {
+      "style": "camelCase",
+      "examples": ["retv", "connStr", "dbPath", "poolSize", "checkedOut"]
     }
   },
 
   "formatting": {
     "indentation": {
-      "style": "2_spaces",
-      "reason": "Coerenza con C++ e stile compatto"
+      "style": "4_spaces",
+      "reason": "Standard Python PEP8"
     },
     "blank_lines": {
       "between_methods": 1,
       "between_classes": 2,
-      "inside_method_body": "no blank lines - compact style"
+      "inside_method_body": "minimal, only for logical separation"
     },
     "docstrings": {
-      "mandatory_for": ["classes", "public_methods"],
-      "style": "google_style",
-      "format": "\"\"\"Brief description.\n    \n    Args:\n      param: description\n      \n    Returns:\n      description\n    \"\"\"",
-      "single_line_allowed": "for simple methods"
+      "style": "single_line_only",
+      "format": "\"\"\"Brief description.\"\"\"",
+      "mandatory_for": ["classes", "all_methods"]
     }
   },
 
   "type_hints": {
     "mandatory": true,
-    "all_parameters": "must have type hints",
-    "all_returns": "must have return type hints",
-    "use_typing_module": true,
-    "modern_syntax": "use | for unions (Python 3.10+) or Optional/Union",
+    "modern_syntax": "use | for unions (Python 3.10+)",
     "examples": [
-      "def query(self, sql: str, params: Optional[tuple]) -> int:",
-      "def select(self, sql: str, params: Optional[tuple]) -> Record:"
+      "def query(self, sql: str, params: tuple = None) -> int | None:",
+      "def select(self, sql: str, params: tuple = None) -> List[Dict[str, Any]]:",
+      "def hasConnection(self) -> bool:"
     ]
   },
 
-  "function_parameters": {
-    "rule": "no_default_values",
-    "rationale": "explicit over implicit - all parameters must be provided explicitly",
-    "forbidden": [
-      "def query(self, sql: str, params: Optional[tuple] = None)",
-      "def __init__(self, driver: str = None)",
-      "def get(self, key: str, default: str = '')"
-    ],
-    "required": [
-      "def query(self, sql: str, params: Optional[tuple])",
-      "def __init__(self, driver: Optional[str])",
-      "def get(self, key: str, default: str)"
-    ],
-    "exception": "__init__ can have no parameters if initialization is empty"
-  },
-
-  "constructor": {
-    "pattern": "def __init__(self, param1: Type1, param2: Type2):",
-    "initialization": "explicit assignment in body",
-    "forbidden": "self.attr = attr shortcut without explicit type",
-    "example": "def __init__(self):\n  \"\"\"Initialize handler.\"\"\"\n  self.connection = None\n  self.cursor = None"
-  },
-
-  "context_managers": {
-    "use_contextmanager_decorator": "for simple context managers",
-    "use_enter_exit": "for complex RAII patterns",
-    "example_decorator": "@contextmanager\ndef _get_cursor(self):\n  cursor = self.connection.cursor()\n  try:\n    yield cursor\n    self.connection.commit()\n  except Exception:\n    self.connection.rollback()\n    raise\n  finally:\n    cursor.close()"
-  },
-
-  "error_handling": {
-    "exceptions": "raise specific exceptions with descriptive messages",
-    "no_silent_failures": true,
-    "validation": "validate early, fail fast",
-    "patterns": {
-      "state_validation": "if not self.is_connected():\n  raise RuntimeError('Not connected to database')",
-      "parameter_validation": "if not sql:\n  raise ValueError('sql cannot be empty')"
+  "control_flow": {
+    "single_exit_point": {
+      "mandatory": true,
+      "pattern": "retv = default_value ... return retv",
+      "example": [
+        "def cursorHasNext(self) -> bool:",
+        "    retv = False",
+        "    if self._cursorResult is not None:",
+        "        retv = self._cursorIndex < len(self._cursorResult)",
+        "    return retv"
+      ]
+    },
+    "traditional_style": {
+      "mandatory": true,
+      "forbidden": ["list_comprehensions", "dict_comprehensions", "ternary_expressions"],
+      "use_instead": ["for loops with append", "explicit if/else blocks"]
     }
   },
 
-  "private_methods": {
-    "naming": "prefix with single underscore",
-    "examples": ["_get_cursor()", "_row_to_dict()", "_parse_connection_string()"],
-    "visibility": "internal implementation details"
+  "constructor": {
+    "pattern": "def __init__(self):",
+    "docstring": "single line",
+    "initialization": "all attributes private with underscore",
+    "example": [
+      "def __init__(self):",
+      "    \"\"\"Initialize DB handler.\"\"\"",
+      "    self._connection = None",
+      "    self._pool = None",
+      "    self._cursor = None"
+    ]
   },
 
-  "class_design": {
-    "single_responsibility": true,
-    "encapsulation": "hide implementation details",
-    "composability": "prefer composition over inheritance for utility classes",
-    "immutability": "prefer immutable state where possible"
+  "method_structure": {
+    "preconditions": "guard clauses with raise at top",
+    "variables": "initialize retv at start for methods with return",
+    "logic": "traditional style, no comprehensions",
+    "return": "single return statement at end",
+    "example": [
+      "def select(self, sql: str, params: tuple = None) -> List[Dict[str, Any]]:",
+      "    \"\"\"Execute SELECT query and return list of dict.\"\"\"",
+      "    if not self.hasConnection():",
+      "        raise RuntimeError('Not connected')",
+      "    retv = []",
+      "    cursor = self._connection.cursor()",
+      "    try:",
+      "        if params:",
+      "            cursor.execute(sql, params)",
+      "        else:",
+      "            cursor.execute(sql)",
+      "        rows = cursor.fetchall()",
+      "        if rows:",
+      "            cols = []",
+      "            for col in cursor.description:",
+      "                cols.append(col[0])",
+      "            for row in rows:",
+      "                record = {}",
+      "                for i in range(len(cols)):",
+      "                    record[cols[i]] = row[i]",
+      "                retv.append(record)",
+      "    finally:",
+      "        cursor.close()",
+      "    return retv"
+    ]
+  },
+
+  "context_managers": {
+    "use_enter_exit": true,
+    "pattern": [
+      "def __enter__(self):",
+      "    \"\"\"Context manager entry.\"\"\"",
+      "    return self",
+      "",
+      "def __exit__(self, exc_type, exc_val, exc_tb):",
+      "    \"\"\"Context manager exit.\"\"\"",
+      "    self.release()"
+    ]
+  },
+
+  "error_handling": {
+    "preconditions": "raise RuntimeError/ValueError at method start",
+    "try_except": "single level, no nesting",
+    "except_block": "catch Exception, not bare except",
+    "patterns": {
+      "state_validation": "if not self.hasConnection():\n    raise RuntimeError('Not connected')",
+      "resource_cleanup": "try/finally for cursor.close()"
+    }
   },
 
   "imports": {
-    "typing_always": "from typing import Dict, List, Optional, Any",
-    "contextlib_when_needed": "from contextlib import contextmanager",
-    "order": "standard library, third party, local imports"
+    "order": ["standard library", "third party", "local imports"],
+    "typing": "from typing import Dict, List, Any",
+    "alias_for_conflicts": "import redis as redisLib"
   },
 
   "forbidden_patterns": [
-    "default_parameter_values",
-    "mutable_default_arguments",
-    "blank_lines_inside_methods",
-    "missing_type_hints",
-    "undocumented_public_methods",
-    "implicit_any_types",
-    "catch_all_exceptions_without_reraising"
+    "list_comprehensions",
+    "dict_comprehensions",
+    "ternary_expressions (x if cond else y)",
+    "multiple_return_statements",
+    "public_attributes",
+    "multi_line_docstrings",
+    "nested_try_except",
+    "bare_except"
   ],
 
   "required_patterns": [
-    "complete_type_hints",
-    "explicit_parameters",
-    "docstrings_for_public_api",
-    "specific_exceptions",
-    "compact_method_bodies",
-    "private_attributes_with_underscore"
+    "single_exit_point",
+    "retv_variable_for_returns",
+    "traditional_for_loops",
+    "private_attributes_only",
+    "single_line_docstrings",
+    "camelCase_methods",
+    "guard_clauses_with_raise"
   ]
 }

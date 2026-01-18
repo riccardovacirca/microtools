@@ -3,59 +3,61 @@ from typing import Dict
 from pathlib import Path
 
 class Env:
-  """Environment variables handler with .env file support."""
+    """Environment variables handler with .env file support."""
 
-  _loaded = False
+    _loaded = False
 
-  def __init__(self, env_path: str):
-    """Initialize Env handler and load .env file.
+    def __init__(self, envPath: str):
+        """Initialize Env handler and load .env file."""
+        if not Env._loaded:
+            self._loadEnvFile(envPath)
+            Env._loaded = True
 
-    Args:
-      env_path: Path to .env file
-    """
-    if not Env._loaded:
-      self._load_env_file(env_path)
-      Env._loaded = True
+    def _loadEnvFile(self, envPath: str):
+        """Load environment variables from .env file."""
+        path = Path(envPath)
+        if path.exists():
+            with open(path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    if line.startswith("#"):
+                        continue
+                    if "=" not in line:
+                        continue
+                    idx = line.index("=")
+                    key = line[:idx].strip()
+                    value = line[idx + 1:].strip()
+                    value = self._stripQuotes(value)
+                    if key and key not in os.environ:
+                        os.environ[key] = value
 
-  def _load_env_file(self, env_path: str):
-    """Load environment variables from .env file."""
-    path = Path(env_path)
-    if not path.exists():
-      return
-    with open(path, 'r') as f:
-      for line in f:
-        line = line.strip()
-        if not line or line.startswith('#'):
-          continue
-        if '=' not in line:
-          continue
-        key, _, value = line.partition('=')
-        key = key.strip()
-        value = value.strip()
-        if value.startswith('"') and value.endswith('"'):
-          value = value[1:-1]
-        elif value.startswith("'") and value.endswith("'"):
-          value = value[1:-1]
-        if key and key not in os.environ:
-          os.environ[key] = value
-  
-  def all(self) -> Dict[str, str]:
-    """Get all environment variables as dictionary."""
-    return dict(os.environ)
-  
-  def get(self, key: str, default: str) -> str:
-    """Get value of specific environment variable."""
-    value = os.getenv(key, default)
-    # Convert to string if not already
-    if not isinstance(value, str):
-      return str(value)
-    # Strip quotes if present
-    if value.startswith('"') and value.endswith('"'):
-      return value[1:-1]
-    if value.startswith("'") and value.endswith("'"):
-      return value[1:-1]
-    return value
-  
-  def has(self, key: str) -> bool:
-    """Check if environment variable exists."""
-    return key in os.environ
+    def _stripQuotes(self, value: str) -> str:
+        """Remove surrounding quotes from value."""
+        retv = value
+        if len(retv) >= 2:
+            if retv.startswith('"') and retv.endswith('"'):
+                retv = retv[1:-1]
+            elif retv.startswith("'") and retv.endswith("'"):
+                retv = retv[1:-1]
+        return retv
+
+    def getAll(self) -> Dict[str, str]:
+        """Get all environment variables as dictionary."""
+        retv = {}
+        for key in os.environ:
+            retv[key] = os.environ[key]
+        return retv
+
+    def get(self, key: str, default: str) -> str:
+        """Get value of specific environment variable."""
+        retv = os.getenv(key, default)
+        if not isinstance(retv, str):
+            retv = str(retv)
+        retv = self._stripQuotes(retv)
+        return retv
+
+    def has(self, key: str) -> bool:
+        """Check if environment variable exists."""
+        return key in os.environ

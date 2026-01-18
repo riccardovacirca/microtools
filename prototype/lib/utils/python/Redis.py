@@ -1,14 +1,17 @@
 import os
-import redis as redis_lib
+import redis as redisLib
 from typing import Any, List
 
 class Redis:
+    """Redis client wrapper."""
 
     def __init__(self):
-        self.client = None
+        """Initialize Redis handler."""
+        self._client = None
 
     def connect(self):
-        if self.client is not None:
+        """Connect to Redis server."""
+        if self._client is not None:
             raise RuntimeError("Already connected")
         host = os.getenv("REDIS_HOST")
         port = os.getenv("REDIS_PORT")
@@ -16,44 +19,55 @@ class Redis:
             raise RuntimeError("REDIS_HOST not set")
         if not port:
             raise RuntimeError("REDIS_PORT not set")
-        self.client = redis_lib.Redis(
+        self._client = redisLib.Redis(
             host=host,
             port=int(port),
             decode_responses=True
         )
 
     def disconnect(self):
-        if self.client is None:
-            return
-        self.client.close()
-        self.client = None
+        """Disconnect from Redis server."""
+        if self._client is not None:
+            self._client.close()
+            self._client = None
 
-    def is_connected(self) -> bool:
-        return self.client is not None
+    def hasConnection(self) -> bool:
+        """Check if connected to Redis."""
+        return self._client is not None
 
     def get(self, key: str) -> Any:
-        if not self.is_connected():
-            raise RuntimeError("Not connected to Redis")
-        return self.client.get(key)
+        """Get value by key."""
+        if not self.hasConnection():
+            raise RuntimeError("Not connected")
+        return self._client.get(key)
 
     def set(self, key: str, value: Any):
-        if not self.is_connected():
-            raise RuntimeError("Not connected to Redis")
-        self.client.set(key, value)
+        """Set value by key."""
+        if not self.hasConnection():
+            raise RuntimeError("Not connected")
+        self._client.set(key, value)
 
-    def list(self) -> List[str]:
-        if not self.is_connected():
-            raise RuntimeError("Not connected to Redis")
-        return self.client.keys("*")
+    def getKeys(self, pattern: str) -> List[str]:
+        """Get all keys matching pattern."""
+        retv = []
+        if not self.hasConnection():
+            raise RuntimeError("Not connected")
+        keys = self._client.keys(pattern)
+        for key in keys:
+            retv.append(key)
+        return retv
 
     def delete(self, key: str):
-        if not self.is_connected():
-            raise RuntimeError("Not connected to Redis")
-        self.client.delete(key)
+        """Delete key."""
+        if not self.hasConnection():
+            raise RuntimeError("Not connected")
+        self._client.delete(key)
 
     def __enter__(self):
+        """Context manager entry."""
         self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, excType, excVal, excTb):
+        """Context manager exit."""
         self.disconnect()

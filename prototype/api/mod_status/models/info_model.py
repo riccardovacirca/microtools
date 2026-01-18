@@ -1,5 +1,6 @@
 
 from pydantic import BaseModel, Field
+from typing import Dict, Any
 
 class InfoModel(BaseModel):
     """Dati status applicazione."""
@@ -11,6 +12,6 @@ class InfoModel(BaseModel):
     class Config:
         extra = "allow"
 
-def get(data: dict) -> InfoModel:
+def get(data: Dict[str, Any]) -> Dict[str, Any]:
     """Valida e restituisce InfoModel."""
-    return InfoModel(**data)
+    return InfoModel(**data).model_dump()

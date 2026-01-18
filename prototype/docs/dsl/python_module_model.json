@@ -1,0 +1,116 @@
+{
+  "model_style": "pydantic_validation",
+  "interface": {
+    "base_class": "pydantic.BaseModel",
+    "function_return_type": "Dict[str, Any]",
+    "framework_types_allowed": false
+  },
+  "architecture": {
+    "model_role": "validation_and_serialization",
+    "business_logic_allowed": false,
+    "data_transformation_allowed": false
+  },
+  "structure": {
+    "model_class": {
+      "naming": "<Entity>Model (PascalCase)",
+      "inheritance": "BaseModel",
+      "docstring": "required",
+      "fields": {
+        "syntax": "field_name: type = Field(..., constraints)",
+        "constraints": ["ge", "le", "min_length", "max_length", "pattern"],
+        "required_marker": "Field(...) for required fields"
+      },
+      "config": {
+        "extra": "allow | forbid | ignore",
+        "syntax": "class Config:\n    extra = \"allow\""
+      }
+    },
+    "get_function": {
+      "purpose": "validate input and return serialized dict",
+      "signature": "def get(data: Dict[str, Any]) -> Dict[str, Any]",
+      "docstring": "required",
+      "body": "return <Model>(**data).model_dump()",
+      "exceptions": "raises ValidationError on invalid data"
+    }
+  },
+  "model_types": {
+    "entity_model": {
+      "purpose": "validate domain entities",
+      "naming": "<Entity>Model",
+      "example": "InfoModel, UserModel, OrderModel"
+    },
+    "response_model": {
+      "purpose": "standardize service responses",
+      "naming": "ResponseModel",
+      "fields": {
+        "err": "bool",
+        "log": "str | None",
+        "out": "Any | None"
+      },
+      "get_function": {
+        "signature": "def get(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]",
+        "body": "retv = ResponseModel(err=err, log=log, out=out)\nreturn retv.model_dump()"
+      },
+      "location": "models/response_model.py (one per module)"
+    }
+  },
+  "field_types": {
+    "primitive": ["int", "str", "bool", "float"],
+    "optional": "type | None",
+    "complex": "List[type], Dict[str, Any]"
+  },
+  "function_parameters": {
+    "rule": "no_default_values",
+    "rationale": "explicit over implicit",
+    "forbidden": "def get(data: Dict[str, Any] = None)",
+    "required": "def get(data: Dict[str, Any])"
+  },
+  "forbidden": [
+    "business_logic_in_model",
+    "data_transformation",
+    "external_calls",
+    "default_parameter_values",
+    "returning_model_instance"
+  ],
+  "examples": {
+    "entity_model": {
+      "file": "info_model.py",
+      "code": [
+        "from pydantic import BaseModel, Field",
+        "from typing import Dict, Any",
+        "",
+        "class InfoModel(BaseModel):",
+        "    \"\"\"Dati status applicazione.\"\"\"",
+        "    id: int = Field(..., ge=1)",
+        "    version: str = Field(..., min_length=1)",
+        "    created_at: str = Field(..., min_length=1)",
+        "    updated_at: str = Field(..., min_length=1)",
+        "",
+        "    class Config:",
+        "        extra = \"allow\"",
+        "",
+        "def get(data: Dict[str, Any]) -> Dict[str, Any]:",
+        "    \"\"\"Valida e restituisce InfoModel.\"\"\"",
+        "    return InfoModel(**data).model_dump()"
+      ]
+    },
+    "response_model": {
+      "file": "response_model.py",
+      "code": [
+        "from pydantic import BaseModel",
+        "from typing import Dict, Any",
+        "",
+        "class ResponseModel(BaseModel):",
+        "    \"\"\"Response standard per tutti i service: {err, log, out}.\"\"\"",
+        "    err: bool",
+        "    log: str | None",
+        "    out: Any | None",
+        "",
+        "def get(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]:",
+        "    \"\"\"Serializza ResponseModel in dict.\"\"\"",
+        "    retv = ResponseModel(err=err, log=log, out=out)",
+        "    return retv.model_dump()"
+      ]
+    }
+  }
+}

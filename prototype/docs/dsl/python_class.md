@@ -1,283 +1,264 @@
-PYTHON_CLASS_STYLE microtools_python_class
+PYTHON_CLASS_STYLE microtools_python_class v2.0
 
 # NAMING CONVENTIONS
 
 CLASSES:
-  - PascalCase: DB, DBConnPool, Env, Record, Recordset
-  - Clear, descriptive names
+  - PascalCase: DB, DBConnPool, Env, Redis
 
 METHODS:
-  - camelCase: connect(), cursorOpen(), selectAll(), isConnected()
-  - Simple verbs for operations
-  - Exception: __init__, __enter__, __exit__ (Python special methods)
+  - Public: camelCase - acquire(), release(), hasConnection(), cursorOpen()
+  - Private: _camelCase - _detectDriver(), _buildConfig(), _createEngine()
 
 ATTRIBUTES:
-  - Public: camelCase (connection, cursor, pool, cursorResult)
-  - Private: _camelCase (_cursorResult, _currentRowIndex, _lastRowcount)
+  - ALL private with underscore: _connection, _pool, _cursor, _client
+  - NO public attributes
+
+LOCAL VARIABLES:
+  - camelCase: retv, connStr, dbPath, poolSize, checkedOut
 
 # FORMATTING
 
 INDENTATION:
-  - 2 spaces for ALL Python code (classes, functions, modules)
-  - No tabs
-  - Mandatory across entire codebase
+  - 4 spaces (PEP8 standard)
 
 BLANK LINES:
-  - 1 blank line between methods
-  - 2 blank lines between classes
-  - NO blank lines inside method bodies (compact style)
+  - 1 between methods
+  - 2 between classes
+  - Minimal inside method bodies
 
 DOCSTRINGS:
-  - Mandatory for classes and public methods
-  - Google style format
-  - Single line for simple methods: """Brief description."""
-  - Multi-line for complex methods with Args and Returns
+  - Single line ONLY: """Brief description."""
+  - Mandatory for classes and ALL methods
 
 # TYPE HINTS
 
-MANDATORY:
-  - All parameters must have type hints
-  - All return types must be specified
-  - Use typing module: Dict, List, Optional, Any
-  - Modern syntax: use | for unions (Python 3.10+) or Optional
+MANDATORY for all parameters and returns.
+
+SYNTAX:
+  - Modern union: int | None, str | None
+  - Collections: List[Dict[str, Any]], Dict[str, str]
 
 EXAMPLES:
-  ✓ def query(self, sql: str, params: Optional[tuple]) -> int:
-  ✓ def selectAll(self, sql: str, params: Optional[tuple]) -> Recordset:
-  ✗ def query(self, sql, params):  # missing type hints
-  ✗ def select_all(self, ...):  # wrong: snake_case instead of camelCase
+  ✓ def query(self, sql: str, params: tuple = None) -> int | None:
+  ✓ def select(self, sql: str, params: tuple = None) -> List[Dict[str, Any]]:
+  ✓ def hasConnection(self) -> bool:
 
-# FUNCTION PARAMETERS
+# CONTROL FLOW
 
-RULE: NO default values in method parameters
+SINGLE EXIT POINT:
+  - Mandatory for all methods with return value
+  - Use retv variable initialized at start
+  - Single return statement at end
 
-FORBIDDEN:
-  ✗ def query(self, sql: str, params: Optional[tuple] = None)
-  ✗ def __init__(self, driver: str = None)
-  ✗ def get(self, key: str, default: str = '')
-  ✗ def cursor_open(self, ...):  # wrong: snake_case
+TRADITIONAL STYLE:
+  - NO list comprehensions
+  - NO dict comprehensions
+  - NO ternary expressions (x if cond else y)
+  - Use explicit for loops with append()
+  - Use explicit if/else blocks
 
-REQUIRED:
-  ✓ def query(self, sql: str, params: Optional[tuple])
-  ✓ def __init__(self, driver: Optional[str])
-  ✓ def get(self, key: str, default: str)
-  ✓ def cursorOpen(self, ...):  # correct: camelCase
-
-RATIONALE:
-  - Explicit over implicit
-  - Prevents arbitrary usage patterns
-  - Callers must explicitly pass all parameters
-
-EXCEPTION:
-  - __init__ can have no parameters if initialization is empty
-  - Example: def __init__(self): (no params OK)
+EXAMPLE:
+```python
+def cursorHasNext(self) -> bool:
+    """Check if cursor has more rows."""
+    retv = False
+    if self._cursorResult is not None:
+        retv = self._cursorIndex < len(self._cursorResult)
+    return retv
+```
 
 # CONSTRUCTOR PATTERN
 
 ```python
 def __init__(self):
-  """Initialize DB handler."""
-  self.connection = None
-  self.cursor = None
-  self.pool = None
+    """Initialize DB handler."""
+    self._connection = None
+    self._pool = None
+    self._cursor = None
+    self._cursorResult = None
+    self._cursorIndex = 0
+    self._columns = []
 ```
 
 RULES:
-  - Explicit assignment in body
-  - No initialization list shortcuts
-  - All attributes initialized explicitly
+  - Single line docstring
+  - All attributes private (_prefix)
+  - Explicit initialization
+
+# METHOD STRUCTURE
+
+```python
+def select(self, sql: str, params: tuple = None) -> List[Dict[str, Any]]:
+    """Execute SELECT query and return list of dict."""
+    if not self.hasConnection():
+        raise RuntimeError("Not connected")
+    retv = []
+    cursor = self._connection.cursor()
+    try:
+        if params:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
+        rows = cursor.fetchall()
+        if rows:
+            cols = []
+            for col in cursor.description:
+                cols.append(col[0])
+            for row in rows:
+                record = {}
+                for i in range(len(cols)):
+                    record[cols[i]] = row[i]
+                retv.append(record)
+    finally:
+        cursor.close()
+    return retv
+```
+
+STRUCTURE:
+  1. Single line docstring
+  2. Preconditions (guard clauses with raise)
+  3. Initialize retv
+  4. Main logic (traditional style)
+  5. Single return
 
 # CONTEXT MANAGERS
 
-Use @contextmanager decorator for simple patterns:
-
-```python
-@contextmanager
-def _get_cursor(self):
-  """Context manager for cursor operations."""
-  cursor = self.connection.cursor()
-  try:
-    yield cursor
-    self.connection.commit()
-  except Exception:
-    self.connection.rollback()
-    raise
-  finally:
-    cursor.close()
-```
-
-Use __enter__/__exit__ for RAII patterns:
-
 ```python
 def __enter__(self):
-  return self
+    """Context manager entry."""
+    return self
 
 def __exit__(self, exc_type, exc_val, exc_tb):
-  self.release()
+    """Context manager exit."""
+    self.release()
 ```
 
 # ERROR HANDLING
 
-EXCEPTIONS:
-  - Raise specific exceptions (RuntimeError, ValueError, TypeError)
-  - Descriptive error messages
-  - No silent failures
+PRECONDITIONS:
+  - Guard clauses at method start
+  - raise RuntimeError/ValueError
 
-VALIDATION:
-  - Validate early
-  - Fail fast
-  - Check state before operations
+TRY/EXCEPT:
+  - Single level (no nesting)
+  - catch Exception, not bare except
+  - Use try/finally for resource cleanup
 
-EXAMPLES:
+EXAMPLE:
 ```python
-if not self.isConnected():
-  raise RuntimeError("Not connected to database")
-
-if not sql:
-  raise ValueError("sql cannot be empty")
+def query(self, sql: str, params: tuple = None) -> int | None:
+    """Execute INSERT, UPDATE, DELETE query."""
+    if not self.hasConnection():
+        raise RuntimeError("Not connected")
+    retv = None
+    cursor = self._connection.cursor()
+    try:
+        if params:
+            cursor.execute(sql, params)
+        else:
+            cursor.execute(sql)
+        self._connection.commit()
+        retv = cursor.rowcount
+    except Exception:
+        self._connection.rollback()
+    finally:
+        cursor.close()
+    return retv
 ```
-
-# PRIVATE METHODS
-
-NAMING:
-  - Prefix with single underscore
-  - camelCase: _getCursor(), _rowToDict(), _parseConnectionString()
-
-PURPOSE:
-  - Internal implementation details
-  - Not part of public API
-
-# CLASS DESIGN PRINCIPLES
-
-SINGLE RESPONSIBILITY:
-  - Each class has one clear purpose
-  - DB: database operations
-  - DBConnPool: connection pooling
-  - Env: environment variable management
-
-ENCAPSULATION:
-  - Hide implementation details
-  - Use private attributes and methods
-  - Expose clean public API
-
-COMPOSABILITY:
-  - Prefer composition over inheritance
-  - Utility classes should be standalone
 
 # IMPORTS
 
-STRUCTURE:
 ```python
-# Standard library
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from contextlib import contextmanager
 
-# Third party
-import redis
-import httpx
+import redis as redisLib
 
-# Local imports
 from .DBConnPool import DBConnPool
 ```
 
-TYPING MODULE:
-  - Always import typing types used
-  - Dict, List, Optional, Any are most common
+ORDER:
+  1. Standard library
+  2. Third party
+  3. Local imports
+
+ALIAS: Use when name conflicts (redis as redisLib)
+
+# FORBIDDEN PATTERNS
+
+- list_comprehensions: [x for x in items]
+- dict_comprehensions: {k: v for k, v in items}
+- ternary_expressions: x if cond else y
+- multiple_return_statements
+- public_attributes (self.attr without _)
+- multi_line_docstrings
+- nested_try_except
+- bare_except (except: without Exception)
+
+# REQUIRED PATTERNS
+
+- single_exit_point with retv variable
+- traditional_for_loops with append()
+- private_attributes_only (_prefix)
+- single_line_docstrings
+- camelCase_methods
+- guard_clauses_with_raise at method start
+- explicit_if_else blocks
 
 # COMPLETE EXAMPLE
 
 ```python
-from typing import Dict, List, Optional, Any
-from contextlib import contextmanager
+from typing import Dict, List, Any
 
-class Record(Dict[str, Any]):
-  """Wrapper for single database record."""
-  pass
+class Redis:
+    """Redis client wrapper."""
 
-class DB:
-  """Database connection and query handler with connection pool support."""
+    def __init__(self):
+        """Initialize Redis handler."""
+        self._client = None
 
-  def __init__(self):
-    """Initialize DB handler."""
-    self.connection = None
-    self.cursor = None
-    self.pool = None
-    self._cursor_result = None
-    self._current_row_index = 0
+    def connect(self):
+        """Connect to Redis server."""
+        if self._client is not None:
+            raise RuntimeError("Already connected")
+        host = os.getenv("REDIS_HOST")
+        port = os.getenv("REDIS_PORT")
+        if not host:
+            raise RuntimeError("REDIS_HOST not set")
+        if not port:
+            raise RuntimeError("REDIS_PORT not set")
+        self._client = redisLib.Redis(
+            host=host,
+            port=int(port),
+            decode_responses=True
+        )
 
-  def acquire(self, pool):
-    """Acquire connection from pool.
+    def disconnect(self):
+        """Disconnect from Redis server."""
+        if self._client is not None:
+            self._client.close()
+            self._client = None
 
-    Args:
-      pool: DBConnPool instance
-    """
-    if self.connection is not None:
-      raise RuntimeError("Already connected")
-    self.pool = pool
-    self.connection = pool.acquire()
+    def hasConnection(self) -> bool:
+        """Check if connected to Redis."""
+        return self._client is not None
 
-  def query(self, sql: str, params: Optional[tuple]) -> int:
-    """Execute SQL query that modifies data.
+    def getKeys(self, pattern: str) -> List[str]:
+        """Get all keys matching pattern."""
+        retv = []
+        if not self.hasConnection():
+            raise RuntimeError("Not connected")
+        keys = self._client.keys(pattern)
+        for key in keys:
+            retv.append(key)
+        return retv
 
-    Args:
-      sql: SQL query (INSERT, UPDATE, DELETE)
-      params: Query parameters
+    def __enter__(self):
+        """Context manager entry."""
+        self.connect()
+        return self
 
-    Returns:
-      Number of affected rows
-    """
-    if not self.isConnected():
-      raise RuntimeError("Not connected to database")
-    with self._getCursor() as cursor:
-      if params:
-        cursor.execute(sql, params)
-      else:
-        cursor.execute(sql)
-      return cursor.rowcount
-
-  def isConnected(self) -> bool:
-    """Check if connected to database."""
-    return self.connection is not None and self.pool is not None
-
-  @contextmanager
-  def _getCursor(self):
-    """Context manager for cursor operations."""
-    cursor = self.connection.cursor()
-    try:
-      yield cursor
-      self.connection.commit()
-    except Exception:
-      self.connection.rollback()
-      raise
-    finally:
-      cursor.close()
-
-  def __enter__(self):
-    return self
-
-  def __exit__(self, exc_type, exc_val, exc_tb):
-    self.release()
+    def __exit__(self, excType, excVal, excTb):
+        """Context manager exit."""
+        self.disconnect()
 ```
-
-# FORBIDDEN PATTERNS
-
-- default_parameter_values (def func(param=value))
-- mutable_default_arguments (def func(lst=[]))
-- blank_lines_inside_methods
-- missing_type_hints
-- undocumented_public_methods
-- implicit_any_types
-- catch_all_exceptions_without_reraising
-- snake_case_methods (use camelCase instead)
-- verbose_method_names (getUserById instead of get(userId))
-
-# REQUIRED PATTERNS
-
-- complete_type_hints for all parameters and returns
-- explicit_parameters (no defaults)
-- docstrings_for_public_api
-- specific_exceptions with descriptive messages
-- compact_method_bodies (no blank lines)
-- private_attributes_with_underscore
-- context_managers for resource management
-- early_validation and fail_fast

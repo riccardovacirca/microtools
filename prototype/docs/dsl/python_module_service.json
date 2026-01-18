@@ -3,50 +3,142 @@
   "interface": {
     "async_only": true,
     "framework_types_allowed": false,
-    "return_type": "dict"
+    "return_type": "Dict[str, Any]"
   },
   "architecture": {
     "service_role": "orchestration",
     "external_access": "adapters_for_external_http",
-    "cache_management": "direct_redis_allowed",
+    "cache_management": "helper_functions",
     "validation": "models_only",
     "response_normalization": "response_model_mandatory"
   },
-  "data_flow": {
-    "source": [
-      "adapter",
-      "redis_cache"
-    ],
-    "validation": "pydantic_model",
-    "output": "response_model"
+  "structure": {
+    "helper_functions": {
+      "purpose": "isolate cache access and reusable logic",
+      "naming": "_<action>_<resource> or _<action>",
+      "visibility": "private (prefixed with _)",
+      "sync_allowed": true,
+      "return_type": "Dict[str, Any] | None",
+      "example": "_get_cached() -> Dict[str, Any] | None"
+    },
+    "main_function": {
+      "signature": "async def <action>() -> Dict[str, Any]",
+      "variables": {
+        "err": "bool = False",
+        "log": "str | None = None",
+        "out": "Dict[str, Any] | None = None"
+      },
+      "body": [
+        "initialize err, log, out",
+        "try block with main logic",
+        "except blocks for specific exceptions",
+        "single return statement"
+      ]
+    }
+  },
+  "control_flow": {
+    "single_try_block": true,
+    "nested_try_forbidden": true,
+    "single_exit_point": true,
+    "return_pattern": "response_model.get(err, log, out)"
   },
   "error_handling": {
     "leak_exceptions": false,
-    "strategy": "structured_response",
-    "required_fields": [
-      "err",
-      "log",
-      "out"
+    "strategy": "catch_and_map",
+    "except_block_pattern": {
+      "order": "specific_to_generic",
+      "body": "err = True; log = <message>",
+      "example": [
+        "except redis.RedisError as e:",
+        "    err = True",
+        "    log = str(e) or 'Redis error'"
+      ]
+    },
+    "common_exceptions": [
+      "redis.RedisError",
+      "json.JSONDecodeError",
+      "ValidationError",
+      "Exception"
     ]
   },
-  "response_model_schema": {
-    "err": "bool - true if error, false if success",
-    "log": "str|None - error message if err=true, null if success",
-    "out": "Any|None - data if success, null if error",
-    "function_signature": "def get(err: bool, log: Optional[str], out: Optional[Any]) -> dict",
-    "no_default_values": "all parameters required, no default values allowed"
+  "response_model": {
+    "mandatory": true,
+    "fields": {
+      "err": "bool - true if error, false if success",
+      "log": "str | None - error message if err=true, None if success",
+      "out": "Dict[str, Any] | None - data if success, None if error"
+    },
+    "success": "response_model.get(False, None, validated_data)",
+    "error": "response_model.get(True, 'error message', None)"
+  },
+  "data_flow": {
+    "source": ["helper_function", "adapter"],
+    "validation": "model.get(data)",
+    "output": "response_model.get(err, log, out)"
   },
   "function_parameters": {
     "rule": "no_default_values",
-    "rationale": "explicit over implicit - all parameters must be provided explicitly",
-    "forbidden": "def func(param1, param2=None, param3=default_value)",
-    "required": "def func(param1, param2, param3) - all parameters explicit"
+    "rationale": "explicit over implicit",
+    "forbidden": "def func(param1, param2=None)",
+    "required": "def func(param1, param2)"
   },
   "forbidden": [
     "HTTPException",
     "Response",
     "Request",
     "raw_adapter_output",
-    "default_parameter_values"
-  ]
+    "default_parameter_values",
+    "nested_try_except",
+    "multiple_return_statements",
+    "business_logic_in_except"
+  ],
+  "example": {
+    "file": "info_service.py",
+    "code": [
+      "import json",
+      "import redis",
+      "import os",
+      "from typing import Dict, Any",
+      "from pydantic import ValidationError",
+      "from ..adapters import info_adapter",
+      "from ..models import info_model",
+      "from ..models import response_model",
+      "",
+      "def _get_cached() -> Dict[str, Any] | None:",
+      "    \"\"\"Recupera dati da cache Redis, None se fallisce.\"\"\"",
+      "    redis_client = redis.Redis(",
+      "        host=os.getenv('REDIS_HOST', '127.0.0.1'),",
+      "        port=int(os.getenv('REDIS_PORT', '6379')),",
+      "        decode_responses=True",
+      "    )",
+      "    rval = redis_client.get('app_status')",
+      "    if rval:",
+      "        return json.loads(rval)",
+      "    return None",
+      "",
+      "async def get() -> Dict[str, Any]:",
+      "    \"\"\"Recupera info status da cache o microservizio.\"\"\"",
+      "    err = False",
+      "    log: str | None = None",
+      "    out: Dict[str, Any] | None = None",
+      "    try:",
+      "        rval: Dict[str, Any] | None = _get_cached()",
+      "        if rval is None:",
+      "            rval = await info_adapter.get()",
+      "        out = info_model.get(rval)",
+      "    except redis.RedisError as e:",
+      "        err = True",
+      "        log = str(e) or 'Redis error'",
+      "    except json.JSONDecodeError as e:",
+      "        err = True",
+      "        log = str(e) or 'JSON decode error'",
+      "    except ValidationError:",
+      "        err = True",
+      "        log = 'Info data validation failed'",
+      "    except Exception as e:",
+      "        err = True",
+      "        log = str(e) or 'Unknown error'",
+      "    return response_model.get(err, log, out)"
+    ]
+  }
 }

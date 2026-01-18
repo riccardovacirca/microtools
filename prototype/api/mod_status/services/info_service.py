@@ -7,38 +7,38 @@ from ..adapters import info_adapter
 from ..models import info_model
 from ..models import response_model
 
-# Client Redis per cache
-redis_client = redis.Redis(
-    host=os.getenv("REDIS_HOST", "127.0.0.1"),
-    port=int(os.getenv("REDIS_PORT", "6379")),
-    decode_responses=True
-)
+def _get_cached() -> Dict[str, Any] | None:
+    """Recupera dati da cache Redis, None se fallisce."""
+    redis_client = redis.Redis(
+        host=os.getenv("REDIS_HOST", "127.0.0.1"),
+        port=int(os.getenv("REDIS_PORT", "6379")),
+        decode_responses=True
+    )
+    rval = redis_client.get("app_status")
+    if rval:
+        return json.loads(rval)
+    return None
 
 async def get() -> Dict[str, Any]:
     """Recupera info status da cache o microservizio."""
+    err = False
+    log: str | None = None
+    out: Dict[str, Any] | None = None
     try:
-        # Prova cache Redis
-        rval = redis_client.get("app_status")
-        if rval:
-            data = json.loads(rval)
-        else:
-            data = await info_adapter.get()
-
-        # Valida e restituisci
-        retv = info_model.get(data)
-        return response_model.get(False, None, retv.model_dump())
-
-    except redis.RedisError:
-        # Fallback a microservizio se Redis fallisce
-        try:
-            data = await info_adapter.get()
-            retv = info_model.get(data)
-            return response_model.get(False, None, retv.model_dump())
-        except Exception:
-            return response_model.get(True, "Redis access failed", None)
-
+        rval: Dict[str, Any] | None = _get_cached()
+        if rval is None:
+            rval = await info_adapter.get()
+        out = info_model.get(rval)
+    except redis.RedisError as e:
+        err = True
+        log = str(e) or "Redis error"
+    except json.JSONDecodeError as e:
+        err = True
+        log = str(e) or "JSON decode error"
     except ValidationError:
-        return response_model.get(True, "Info data validation failed", None)
-
+        err = True
+        log = "Info data validation failed"
     except Exception as e:
-        return response_model.get(True, str(e) or "Unknown error", None)
+        err = True
+        log = str(e) or "Unknown error"
+    return response_model.get(err, log, out)

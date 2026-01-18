@@ -1,172 +1,188 @@
-from typing import Dict, Optional
+from typing import Dict, Any
 from contextlib import contextmanager
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.pool import QueuePool, StaticPool
-from .Env import Env
 
 class DBConnPool:
-  """SQLAlchemy connection pool manager."""
-  
-  def __init__(self, driver: Optional[str], env, **config):
-    """
-    Initialize connection pool.
+    """SQLAlchemy connection pool manager."""
 
-    Args:
-      driver: Database driver (sqlite3|mariadb|pgsql, None for auto-detect)
-      env: Env instance for configuration
-      **config: Pool configuration parameters
-    """
-    self.env = env
-    self.driver = self._detect_driver(driver)
-    self.config = {
-      "pool_size": int(self.env.get("DB_POOL_SIZE", config.get("pool_size", 5))),
-      "max_overflow": int(self.env.get("DB_POOL_MAX_OVERFLOW", config.get("max_overflow", 10))),
-      "pool_timeout": int(self.env.get("DB_POOL_TIMEOUT", config.get("pool_timeout", 30))),
-      "pool_recycle": int(self.env.get("DB_POOL_RECYCLE", config.get("pool_recycle", 3600))),
-      "pool_pre_ping": self.env.get("DB_POOL_PRE_PING", str(config.get("pool_pre_ping", True))).lower() == "true",
-      "echo_pool": self.env.get("DB_POOL_ECHO", str(config.get("echo_pool", False))).lower() == "true"
-    }
-    self._engine = self._create_engine()
-    self._active_connections = {}
-  
-  def _detect_driver(self, driver: Optional[str]) -> str:
-    """Auto-detect driver from environment if not specified."""
-    if driver:
-      return driver
-    
-    if self.env.get("SQLITE3_ENABLED", "n") == "y":
-      return "sqlite3"
-    elif self.env.get("MARIADB_ENABLED", "n") == "y":
-      return "mariadb"
-    elif self.env.get("PGSQL_ENABLED", "n") == "y":
-      return "pgsql"
-    else:
-      raise ValueError("No database enabled. Set SQLITE3_ENABLED, MARIADB_ENABLED, or PGSQL_ENABLED to 'y'")
-  
-  def _create_engine(self) -> Engine:
-    """Create SQLAlchemy engine with connection pooling."""
-    if self.driver == "sqlite3":
-      db_path = self.env.get("SQLITE3_CONNECTION", "").replace("file:", "")
-      if not db_path:
-        raise ValueError("SQLITE3_CONNECTION not set")
-      
-      engine = create_engine(
-        f"sqlite:///{db_path}",
-        poolclass=StaticPool,
-        connect_args={"check_same_thread": False},
-        echo_pool=self.config["echo_pool"]
-      )
-      
-      @event.listens_for(engine, "connect")
-      def set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
-      
-      return engine
-      
-    elif self.driver == "pgsql":
-      conn_str = self.env.get("PGSQL_CONNECTION", "")
-      if not conn_str:
-        raise ValueError("PGSQL_CONNECTION not set")
-      
-      params = self._parse_connection_string(conn_str)
-      url = (
-        f"postgresql+psycopg2://{params.get('user', '')}:{params.get('password', '')}"
-        f"@{params.get('host', 'localhost')}:{params.get('port', '5432')}"
-        f"/{params.get('dbname', '')}"
-      )
-      
-      return create_engine(
-        url,
-        poolclass=QueuePool,
-        pool_size=self.config["pool_size"],
-        max_overflow=self.config["max_overflow"],
-        pool_timeout=self.config["pool_timeout"],
-        pool_recycle=self.config["pool_recycle"],
-        pool_pre_ping=self.config["pool_pre_ping"],
-        echo_pool=self.config["echo_pool"]
-      )
-      
-    elif self.driver == "mariadb":
-      conn_str = self.env.get("MARIADB_CONNECTION", "")
-      if not conn_str:
-        raise ValueError("MARIADB_CONNECTION not set")
-      
-      params = self._parse_connection_string(conn_str)
-      url = (
-        f"mysql+pymysql://{params.get('user', '')}:{params.get('pass', '')}"
-        f"@{params.get('host', 'localhost')}:{params.get('port', '3306')}"
-        f"/{params.get('dbname', '')}"
-      )
-      
-      return create_engine(
-        url,
-        poolclass=QueuePool,
-        **self.config
-      )
-      
-    raise ValueError(f"Unsupported driver: {self.driver}")
-  
-  def _parse_connection_string(self, conn_str: str) -> Dict[str, str]:
-    """Parse database connection string."""
-    params = {}
-    parts = conn_str.split(",") if "," in conn_str else conn_str.split()
-    for part in parts:
-      if "=" in part:
-        key, value = part.split("=", 1)
-        params[key.strip()] = value.strip()
-    return params
-  
-  def acquire(self):
-    """Acquire a connection from the pool."""
-    conn = self._engine.raw_connection()
-    conn_id = id(conn)
-    self._active_connections[conn_id] = conn
-    return conn
-  
-  def release(self, conn):
-    """Release connection back to the pool."""
-    conn_id = id(conn)
-    if conn_id in self._active_connections:
-      del self._active_connections[conn_id]
-    conn.close()
-  
-  def terminate(self):
-    """Terminate all connections and dispose pool."""
-    for conn in self._active_connections.values():
-      try:
+    def __init__(self, driver: str, env: Any, **config):
+        """Initialize connection pool."""
+        self._env = env
+        self._driver = self._detectDriver(driver)
+        self._config = self._buildConfig(config)
+        self._engine = self._createEngine()
+        self._activeConnections = {}
+
+    def _detectDriver(self, driver: str) -> str:
+        """Auto-detect driver from environment if not specified."""
+        retv = driver
+        if not retv:
+            if self._env.get("SQLITE3_ENABLED", "n") == "y":
+                retv = "sqlite3"
+            elif self._env.get("MARIADB_ENABLED", "n") == "y":
+                retv = "mariadb"
+            elif self._env.get("PGSQL_ENABLED", "n") == "y":
+                retv = "pgsql"
+            else:
+                raise ValueError("No database enabled")
+        return retv
+
+    def _buildConfig(self, config: Dict) -> Dict:
+        """Build configuration from environment and defaults."""
+        retv = {}
+        retv["pool_size"] = int(self._env.get("DB_POOL_SIZE", str(config.get("pool_size", 5))))
+        retv["max_overflow"] = int(self._env.get("DB_POOL_MAX_OVERFLOW", str(config.get("max_overflow", 10))))
+        retv["pool_timeout"] = int(self._env.get("DB_POOL_TIMEOUT", str(config.get("pool_timeout", 30))))
+        retv["pool_recycle"] = int(self._env.get("DB_POOL_RECYCLE", str(config.get("pool_recycle", 3600))))
+        prePing = self._env.get("DB_POOL_PRE_PING", str(config.get("pool_pre_ping", True)))
+        retv["pool_pre_ping"] = prePing.lower() == "true"
+        echoPool = self._env.get("DB_POOL_ECHO", str(config.get("echo_pool", False)))
+        retv["echo_pool"] = echoPool.lower() == "true"
+        return retv
+
+    def _createEngine(self) -> Engine:
+        """Create SQLAlchemy engine with connection pooling."""
+        retv = None
+        if self._driver == "sqlite3":
+            retv = self._createSqliteEngine()
+        elif self._driver == "pgsql":
+            retv = self._createPgsqlEngine()
+        elif self._driver == "mariadb":
+            retv = self._createMariadbEngine()
+        else:
+            raise ValueError("Unsupported driver: " + self._driver)
+        return retv
+
+    def _createSqliteEngine(self) -> Engine:
+        """Create SQLite engine."""
+        dbPath = self._env.get("SQLITE3_CONNECTION", "")
+        dbPath = dbPath.replace("file:", "")
+        if not dbPath:
+            raise ValueError("SQLITE3_CONNECTION not set")
+        engine = create_engine(
+            "sqlite:///" + dbPath,
+            poolclass=StaticPool,
+            connect_args={"check_same_thread": False},
+            echo_pool=self._config["echo_pool"]
+        )
+        @event.listens_for(engine, "connect")
+        def setSqlitePragma(dbapiConn, connectionRecord):
+            cursor = dbapiConn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+        return engine
+
+    def _createPgsqlEngine(self) -> Engine:
+        """Create PostgreSQL engine."""
+        connStr = self._env.get("PGSQL_CONNECTION", "")
+        if not connStr:
+            raise ValueError("PGSQL_CONNECTION not set")
+        params = self._parseConnectionString(connStr)
+        url = "postgresql+psycopg2://"
+        url = url + params.get("user", "") + ":" + params.get("password", "")
+        url = url + "@" + params.get("host", "localhost") + ":" + params.get("port", "5432")
+        url = url + "/" + params.get("dbname", "")
+        retv = create_engine(
+            url,
+            poolclass=QueuePool,
+            pool_size=self._config["pool_size"],
+            max_overflow=self._config["max_overflow"],
+            pool_timeout=self._config["pool_timeout"],
+            pool_recycle=self._config["pool_recycle"],
+            pool_pre_ping=self._config["pool_pre_ping"],
+            echo_pool=self._config["echo_pool"]
+        )
+        return retv
+
+    def _createMariadbEngine(self) -> Engine:
+        """Create MariaDB engine."""
+        connStr = self._env.get("MARIADB_CONNECTION", "")
+        if not connStr:
+            raise ValueError("MARIADB_CONNECTION not set")
+        params = self._parseConnectionString(connStr)
+        url = "mysql+pymysql://"
+        url = url + params.get("user", "") + ":" + params.get("pass", "")
+        url = url + "@" + params.get("host", "localhost") + ":" + params.get("port", "3306")
+        url = url + "/" + params.get("dbname", "")
+        retv = create_engine(
+            url,
+            poolclass=QueuePool,
+            pool_size=self._config["pool_size"],
+            max_overflow=self._config["max_overflow"],
+            pool_timeout=self._config["pool_timeout"],
+            pool_recycle=self._config["pool_recycle"],
+            pool_pre_ping=self._config["pool_pre_ping"],
+            echo_pool=self._config["echo_pool"]
+        )
+        return retv
+
+    def _parseConnectionString(self, connStr: str) -> Dict[str, str]:
+        """Parse database connection string."""
+        retv = {}
+        parts = []
+        if "," in connStr:
+            parts = connStr.split(",")
+        else:
+            parts = connStr.split()
+        for part in parts:
+            if "=" in part:
+                idx = part.index("=")
+                key = part[:idx].strip()
+                value = part[idx + 1:].strip()
+                retv[key] = value
+        return retv
+
+    def acquire(self):
+        """Acquire a connection from the pool."""
+        conn = self._engine.raw_connection()
+        connId = id(conn)
+        self._activeConnections[connId] = conn
+        return conn
+
+    def release(self, conn):
+        """Release connection back to the pool."""
+        connId = id(conn)
+        if connId in self._activeConnections:
+            del self._activeConnections[connId]
         conn.close()
-      except:
-        pass
-    self._active_connections.clear()
-    self._engine.dispose()
-  
-  @contextmanager
-  def connection(self):
-    """Context manager for connection."""
-    conn = self.acquire()
-    try:
-      yield conn
-    finally:
-      self.release(conn)
-  
-  def get_pool_status(self) -> Dict:
-    """Get connection pool status."""
-    try:
-      pool = self._engine.pool
-      checked_out = pool.checkedout()
-      pool_size = pool.size()
-      overflow = pool.overflow() if hasattr(pool, 'overflow') else 0
-      
-      return {
-        "pool_size": pool_size,
-        "checked_out": checked_out,
-        "checked_in": pool_size - checked_out,
-        "overflow": overflow,
-        "total": pool_size + overflow,
-        "active_connections": len(self._active_connections)
-      }
-    except Exception as e:
-      return {"error": str(e)}
+
+    def terminate(self):
+        """Terminate all connections and dispose pool."""
+        for conn in self._activeConnections.values():
+            try:
+                conn.close()
+            except Exception:
+                pass
+        self._activeConnections.clear()
+        self._engine.dispose()
+
+    @contextmanager
+    def connection(self):
+        """Context manager for connection."""
+        conn = self.acquire()
+        try:
+            yield conn
+        finally:
+            self.release(conn)
+
+    def getPoolStatus(self) -> Dict[str, Any]:
+        """Get connection pool status."""
+        retv = {}
+        try:
+            pool = self._engine.pool
+            checkedOut = pool.checkedout()
+            poolSize = pool.size()
+            overflow = 0
+            if hasattr(pool, "overflow"):
+                overflow = pool.overflow()
+            retv["pool_size"] = poolSize
+            retv["checked_out"] = checkedOut
+            retv["checked_in"] = poolSize - checkedOut
+            retv["overflow"] = overflow
+            retv["total"] = poolSize + overflow
+            retv["active_connections"] = len(self._activeConnections)
+        except Exception as e:
+            retv["error"] = str(e)
+        return retv
