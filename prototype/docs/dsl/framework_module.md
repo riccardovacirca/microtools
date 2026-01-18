@@ -111,14 +111,14 @@ mod_<MODULE_NAME>/
 
 ### Export
 ```bash
-mt module export -n <module_name>
+cmd module export -n <module_name>
 ```
 - Output: `/workspace/dist/modules/<module_name>.tar.gz`
 - Include: api, database, gui, services, module.json
 
 ### Import
 ```bash
-mt module import -n <module_name> [--force]
+cmd module import -n <module_name> [--force]
 ```
 - Post-azioni:
   1. Installazione dipendenze Python

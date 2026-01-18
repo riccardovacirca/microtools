@@ -18,8 +18,8 @@
 
 - [OK]
   gli script di gestione dello stato di gunicorn dovrebbero essere integrati
-  con lo script mt con dei subcommands dedicati
-  es. mt gunicorn start|stop|restart|status.
+  con lo script cmd con dei subcommands dedicati
+  es. cmd gunicorn start|stop|restart|status.
 
 - [OK] Verificare come vengono usate le variabili del file .env: PROJECT_NAME e
   NAME. dal momento che hanno lo stesso valore potremmo mantenere solo
@@ -28,7 +28,7 @@
 - Verificre se le variabili POLL_INTERVAL THREAD_COUNT possono essere rimosse
 
 - [OK]
-  modificare il comando mt update in 'wa git push' e aggiungere il comando
+  modificare il comando cmd update in 'wa git push' e aggiungere il comando
   'wa git pull' e inoltre aggiungere il comando 'wa git sync' per eseguire
   entrambe le operazioni nell'ordine più sensato
 
@@ -84,8 +84,8 @@
     s6-svc -u /path/to/s6/services/<nome_servizio>
 
 - [OK]
-  Attualmente esiste un comando mt gui build. Questo comando va sostituito con
-  il comando mt vite mt vite build|start|stop|restart|status
+  Attualmente esiste un comando cmd gui build. Questo comando va sostituito con
+  il comando cmd vite cmd vite build|start|stop|restart|status
 
 - [OK]
   Lo script setup.sh a partire dalla riga 237 provvede ad installare i servizi
@@ -109,7 +109,7 @@
   Il microservizio mod_status deve essere tra i servizi DEFAULT_ENABLED_SERVICES
 
 - [OK]
-  Nello script mt AG_STATUS si riferisce a uvicorn. modificare il nome AG_ in
+  Nello script cmd AG_STATUS si riferisce a uvicorn. modificare il nome AG_ in
   UVICORN_ e anche AG_ICON
 
 - [OK]
@@ -124,7 +124,7 @@
   rinominare il progetto in microtools
 
 - [OK]
-  rinominare il comando wa in mt
+  rinominare il comando wa in cmd
 
 - [OK]
   Verificare che il modulo /workspace/gui/src/mod_status della gui sia collegato
@@ -185,13 +185,13 @@
 - L'installazione corrente di fastAPI nella cartella /workspace/api avviene durante la procedura di setup a carico del file setup.sh . questa installazione prevede una struttura modulare del progetto fastAPI . i moduli come ad esempio mod_status devono usare una libreria comune. attualmente stiamo migrando questa libreria. in precedenza questa libreria era implementata nella cartella /workspace/api/common.backup ma adesso la decisione è quella di utilizzare la libreria presente in /workspace/.toolchain/prototype/lib/utils/python così come avviene per la libreria cpp anche questa libreria dovrebbe essere copiata dalla sua posizione attuale che è la posizione di origine nella posizione /workspace/api/utils e utilizzata da questa posizione. questa copia deve avvenire durante la procedura di setup eseguita dal file setup.sh. tutti i moduli dovrebbero usare gli script di questa libreria per le operazioni comuni che per il momento sono parzialmente implementate. Attualmente infatti i moduli python in apii sono solo parzialmente funzionanti perchè la  libreria è ancora incompleta. per il momento occupiamoci del setup che copia la libreria poi implementeremo e correggeremo i moduli
 
 - rimuovere il link simbolico a install e modificare tutti i percorsi in
-  setup.sh, install.sh, e bin/mt
+  setup.sh, install.sh, e bin/cmd
 
 - rinominare .toolchain in .microtools e install in prototype
   in modo da avere una struttura .microtools/prototype che rappresenta il
   prototipo della applicazione
 
-- rinominare mt in cmd
+- rinominare cmd in cmd
 
 - rifattorizzare la procedura di release. spostare il file release
   allo stesso livello di setup e spostare la cartella release dentro
@@ -204,7 +204,7 @@
 
 - rendere minimalista l'output del comando cmd
 
-- il comando mt git push potrebbe avere una opzione -m per il messaggio di commit
+- il comando cmd git push potrebbe avere una opzione -m per il messaggio di commit
   se non specificato viene usato il messaggio di default
 
 

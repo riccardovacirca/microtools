@@ -46,12 +46,12 @@ step() { echo -e "\n\033[1;36m==>\033[0m \033[1m$*\033[0m\n"; }
 
 build_frontend() {
     [[ "$SKIP_FRONTEND" == true ]] && { warn "Skipping frontend build"; return; }
-    step "Building frontend..." && docker exec "$PROJECT_NAME" /workspace/bin/mt gui build || error "Frontend build failed"
+    step "Building frontend..." && docker exec "$PROJECT_NAME" /workspace/bin/cmd gui build || error "Frontend build failed"
 }
 
 build_services() {
     [[ "$SKIP_SERVICES" == true ]] && { warn "Skipping services build"; return; }
-    step "Building C++ services..." && docker exec "$PROJECT_NAME" /workspace/bin/mt service build -n mod_status || warn "Service build failed (non-critical)"
+    step "Building C++ services..." && docker exec "$PROJECT_NAME" /workspace/bin/cmd service build -n mod_status || warn "Service build failed (non-critical)"
 }
 
 validate_container() {

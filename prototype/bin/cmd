@@ -40,59 +40,59 @@ load_env() {
 
 show_help() {
   cat << 'EOF'
-Usage: mt COMMAND [OPTIONS]
+Usage: cmd COMMAND [OPTIONS]
 
 Commands:
-  mt status                    Show all services status
-  mt monitor                   Show detailed monitoring (ports, CPU, memory)
-  mt list                      List all s6 services and their status
-  mt db                        Open database CLI
-  mt db -f FILE                Execute SQL/CSV file
-  mt db conf                   Configure ODBC from .env settings
+  cmd status                    Show all services status
+  cmd monitor                   Show detailed monitoring (ports, CPU, memory)
+  cmd list                      List all s6 services and their status
+  cmd db                        Open database CLI
+  cmd db -f FILE                Execute SQL/CSV file
+  cmd db conf                   Configure ODBC from .env settings
 
 Microservice Management (C++ services):
-  mt service build -n NAME     Build C++ microservice (does not enable)
-  mt service enable -n NAME    Enable and start microservice (runtime + persistent)
-  mt service disable -n NAME   Stop and disable microservice
-  mt service start -n NAME     Start enabled microservice
-  mt service stop -n NAME      Stop enabled microservice
-  mt service restart -n NAME   Restart enabled microservice
-  mt service status -n NAME    Show microservice status
+  cmd service build -n NAME     Build C++ microservice (does not enable)
+  cmd service enable -n NAME    Enable and start microservice (runtime + persistent)
+  cmd service disable -n NAME   Stop and disable microservice
+  cmd service start -n NAME     Start enabled microservice
+  cmd service stop -n NAME      Stop enabled microservice
+  cmd service restart -n NAME   Restart enabled microservice
+  cmd service status -n NAME    Show microservice status
 
 Library Management:
-  mt lib build                 Build and install libmicrotools.a static library
+  cmd lib build                 Build and install libmicrotools.a static library
 
 Service Management:
-  mt redis start|stop|restart|status|info|cli
-  mt uvicorn start|stop|restart|status
-  mt nginx start|stop|restart|status
-  mt gunicorn start|stop|restart|status
-  mt vite build|start|stop|restart|status
+  cmd redis start|stop|restart|status|info|cli
+  cmd uvicorn start|stop|restart|status
+  cmd nginx start|stop|restart|status
+  cmd gunicorn start|stop|restart|status
+  cmd vite build|start|stop|restart|status
   
 Git Operations:
-  mt git push                      Push changes to git repositories (workspace and project)
-  mt git pull                      Pull changes from git repositories (workspace and project)
-  mt git sync                      Sync git repositories (pull, commit, push)
-  mt git branch -b <name> [<repo>] Create/switch to branch and push to remote if needed  
-  mt git merge -b <name> [<repo>]  Merge branch into main and delete from local/remote
+  cmd git push                      Push changes to git repositories (workspace and project)
+  cmd git pull                      Pull changes from git repositories (workspace and project)
+  cmd git sync                      Sync git repositories (pull, commit, push)
+  cmd git branch -b <name> [<repo>] Create/switch to branch and push to remote if needed  
+  cmd git merge -b <name> [<repo>]  Merge branch into main and delete from local/remote
                                    
 
 Module Management:
-  mt module export -n <name>       Export module to tar.gz archive in dist/modules/
-  mt module import -n <name> [--force]
+  cmd module export -n <name>       Export module to tar.gz archive in dist/modules/
+  cmd module import -n <name> [--force]
                                    Import module from tar.gz archive
                                    Use --force to overwrite existing module
 
 Other:
-  mt --help, -h                Show this help
+  cmd --help, -h                Show this help
 
 Services managed by s6-overlay:
   - nginx, redis, uvicorn, mod_status (enabled by default)
   - gunicorn, vite (disabled by default)
 
 Note: Core services (nginx, redis, uvicorn) and microservices use s6-overlay.
-      Vite dev server is managed independently via 'mt vite' commands.
-      Use 'mt list' to see all s6-managed services.
+      Vite dev server is managed independently via 'cmd vite' commands.
+      Use 'cmd list' to see all s6-managed services.
 
 EOF
   exit 0
@@ -797,7 +797,7 @@ redis_info() {
 
   # Check if Redis is running
   if ! redis-cli ping >/dev/null 2>&1; then
-    error "Redis server not running. Start it with 'mt redis start'"
+    error "Redis server not running. Start it with 'cmd redis start'"
   fi
 
   # Get total number of keys
@@ -1028,7 +1028,7 @@ service_list() {
 
   echo "═══════════════════════════════════════════════════════════════════════════"
   echo ""
-  echo "Use 'mt <service> start|stop|restart' to manage services at runtime"
+  echo "Use 'cmd <service> start|stop|restart' to manage services at runtime"
   echo ""
 }
 
@@ -1250,7 +1250,7 @@ git_branch() {
   REPO_SPEC="$2"
   load_env
 
-  [ -z "$BRANCH_NAME" ] && error "Branch name is required. Use: mt git branch -b <branch-name> [<repo-name>]"
+  [ -z "$BRANCH_NAME" ] && error "Branch name is required. Use: cmd git branch -b <branch-name> [<repo-name>]"
 
   # Verify required environment variables
   [ -z "$GIT_USER" ] && error "GIT_USER not set in .env file"
@@ -1327,7 +1327,7 @@ git_merge() {
   REPO_SPEC="$2"
   load_env
 
-  [ -z "$BRANCH_NAME" ] && error "Branch name is required. Use: mt git merge -b <branch-name> [<repo-name>]"
+  [ -z "$BRANCH_NAME" ] && error "Branch name is required. Use: cmd git merge -b <branch-name> [<repo-name>]"
 
   # Verify required environment variables
   [ -z "$GIT_USER" ] && error "GIT_USER not set in .env file"
@@ -1424,7 +1424,7 @@ git_merge() {
 
   info "Git merge operation completed for '$BRANCH_NAME' in $REPO_DIR"
   info "Note: Changes have been merged locally but not pushed to remote"
-  info "Use 'mt git push' to push the merged changes to remote"
+  info "Use 'cmd git push' to push the merged changes to remote"
 }
 
 # Exports a module to a tar.gz archive
@@ -1433,7 +1433,7 @@ git_merge() {
 module_export() {
   MODULE_NAME="$1"
 
-  [ -z "$MODULE_NAME" ] && error "Module name is required. Use: mt module export -n <module-name>"
+  [ -z "$MODULE_NAME" ] && error "Module name is required. Use: cmd module export -n <module-name>"
 
   # Check if API module exists (required)
   API_DIR="/workspace/api/$MODULE_NAME"
@@ -1560,7 +1560,7 @@ module_import() {
   ARCHIVE_NAME="$1"
   FORCE_FLAG="$2"
 
-  [ -z "$ARCHIVE_NAME" ] && error "Archive name is required. Use: mt module import -n <module-name>.tar.gz [--force]"
+  [ -z "$ARCHIVE_NAME" ] && error "Archive name is required. Use: cmd module import -n <module-name>.tar.gz [--force]"
 
   # Ensure .tar.gz extension
   if [ "${ARCHIVE_NAME%.tar.gz}" = "$ARCHIVE_NAME" ]; then
@@ -1671,9 +1671,9 @@ module_import() {
   if [ -d "/workspace/services/$MODULE_NAME" ]; then
     echo "C++ microservice detected:"
     echo "  To build the service, run:"
-    echo "    mt service build -n $MODULE_NAME"
+    echo "    cmd service build -n $MODULE_NAME"
     echo "  To enable and start the service, run:"
-    echo "    mt service enable -n $MODULE_NAME"
+    echo "    cmd service enable -n $MODULE_NAME"
     echo ""
   fi
 
@@ -1681,7 +1681,7 @@ module_import() {
   if [ -d "/workspace/database/$MODULE_NAME" ]; then
     echo "Database scripts detected:"
     echo "  To install database schema, run:"
-    echo "    mt db -f /workspace/database/$MODULE_NAME/<db_type>_install.sql"
+    echo "    cmd db -f /workspace/database/$MODULE_NAME/<db_type>_install.sql"
     echo "  (Replace <db_type> with: sqlite3, mariadb, or postgres)"
     echo ""
   fi
@@ -1691,7 +1691,7 @@ module_import() {
     echo "GUI components detected:"
     echo "  You may need to update /workspace/gui/src/Layout.svelte to include the new module"
     echo "  To rebuild the GUI, run:"
-    echo "    mt vite build"
+    echo "    cmd vite build"
     echo ""
   fi
 
@@ -2012,7 +2012,7 @@ wa_monitor() {
 
   echo "═══════════════════════════════════════════════════════════════════════════"
   echo ""
-  echo "Press 'mt htop' for interactive monitoring"
+  echo "Press 'cmd htop' for interactive monitoring"
   echo ""
 }
 
@@ -2085,14 +2085,14 @@ case "$COMMAND" in
         db_cli "$1"
         ;;
       *)
-        error "Unknown db action: $DB_ACTION. Valid actions: conf, -f. Use 'mt --help' for usage"
+        error "Unknown db action: $DB_ACTION. Valid actions: conf, -f. Use 'cmd --help' for usage"
         ;;
     esac
     ;;
 
   service|ms)
     # Parse microservice subcommand
-    [ $# -eq 0 ] && error "Microservice action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Microservice action required. Use 'cmd --help' for usage information"
 
     MS_ACTION="$1"
     shift
@@ -2109,7 +2109,7 @@ case "$COMMAND" in
           shift
           ;;
         *)
-          error "Unknown option for 'ms $MS_ACTION': $1. Use 'mt --help' for usage information"
+          error "Unknown option for 'ms $MS_ACTION': $1. Use 'cmd --help' for usage information"
           ;;
       esac
     done
@@ -2145,7 +2145,7 @@ case "$COMMAND" in
 
   vite)
     # Parse Vite subcommand
-    [ $# -eq 0 ] && error "Vite action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Vite action required. Use 'cmd --help' for usage information"
 
     VITE_ACTION="$1"
     shift
@@ -2175,7 +2175,7 @@ case "$COMMAND" in
 
   redis)
     # Parse Redis subcommand
-    [ $# -eq 0 ] && error "Redis action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Redis action required. Use 'cmd --help' for usage information"
 
     REDIS_ACTION="$1"
     shift
@@ -2208,7 +2208,7 @@ case "$COMMAND" in
 
   gunicorn)
     # Parse Gunicorn subcommand
-    [ $# -eq 0 ] && error "Gunicorn action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Gunicorn action required. Use 'cmd --help' for usage information"
 
     GUNICORN_ACTION="$1"
     shift
@@ -2235,7 +2235,7 @@ case "$COMMAND" in
     ;;
   uvicorn)
     # Parse Uvicorn subcommand
-    [ $# -eq 0 ] && error "Uvicorn action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Uvicorn action required. Use 'cmd --help' for usage information"
 
     UVICORN_ACTION="$1"
     shift
@@ -2262,7 +2262,7 @@ case "$COMMAND" in
 
   nginx)
     # Parse Nginx subcommand
-    [ $# -eq 0 ] && error "Nginx action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Nginx action required. Use 'cmd --help' for usage information"
 
     NGINX_ACTION="$1"
     shift
@@ -2293,7 +2293,7 @@ case "$COMMAND" in
 
   module)
     # Parse module subcommand
-    [ $# -eq 0 ] && error "Module action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Module action required. Use 'cmd --help' for usage information"
 
     MODULE_ACTION="$1"
     shift
@@ -2312,7 +2312,7 @@ case "$COMMAND" in
               shift
               ;;
             *)
-              error "Unknown option for 'module export': $1. Use: mt module export -n <module-name>"
+              error "Unknown option for 'module export': $1. Use: cmd module export -n <module-name>"
               ;;
           esac
         done
@@ -2335,7 +2335,7 @@ case "$COMMAND" in
               shift
               ;;
             *)
-              error "Unknown option for 'module import': $1. Use: mt module import -n <archive-name> [--force]"
+              error "Unknown option for 'module import': $1. Use: cmd module import -n <archive-name> [--force]"
               ;;
           esac
         done
@@ -2349,7 +2349,7 @@ case "$COMMAND" in
 
   git)
     # Parse git subcommand
-    [ $# -eq 0 ] && error "Git action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Git action required. Use 'cmd --help' for usage information"
 
     GIT_ACTION="$1"
     shift
@@ -2383,7 +2383,7 @@ case "$COMMAND" in
                 REPO_NAME="$1"
                 shift
               else
-                error "Unknown option for 'git branch': $1. Use: mt git branch -b <branch-name> [<repo-name>]"
+                error "Unknown option for 'git branch': $1. Use: cmd git branch -b <branch-name> [<repo-name>]"
               fi
               ;;
           esac
@@ -2408,7 +2408,7 @@ case "$COMMAND" in
                 MERGE_REPO="$1"
                 shift
               else
-                error "Unknown option for 'git merge': $1. Use: mt git merge -b <branch-name> [<repo-name>]"
+                error "Unknown option for 'git merge': $1. Use: cmd git merge -b <branch-name> [<repo-name>]"
               fi
               ;;
           esac
@@ -2423,7 +2423,7 @@ case "$COMMAND" in
 
   lib)
     # Parse lib subcommand
-    [ $# -eq 0 ] && error "Lib action required. Use 'mt --help' for usage information"
+    [ $# -eq 0 ] && error "Lib action required. Use 'cmd --help' for usage information"
 
     LIB_ACTION="$1"
     shift
@@ -2439,6 +2439,6 @@ case "$COMMAND" in
     ;;
 
   *)
-    error "Unknown command: $COMMAND. Use 'mt --help' for usage information"
+    error "Unknown command: $COMMAND. Use 'cmd --help' for usage information"
     ;;
 esac

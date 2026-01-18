@@ -2,7 +2,6 @@
   "dsl_name": "microtools_database_module",
   "version": "1.0",
   "description": "DSL per la struttura dei file SQL di un modulo database",
-
   "structure": {
     "location": "/workspace/database/mod_<MODULE_NAME>/",
     "directories": {
@@ -20,7 +19,7 @@
         "postgres_install.sql",
         "postgres_uninstall.sql"
       ],
-      "purpose": "File di ingresso usati da bin/mt per installare/disinstallare il modulo"
+      "purpose": "File di ingresso usati da bin/cmd per installare/disinstallare il modulo"
     },
     "schema_files": {
       "location": "<dbtype>/",
@@ -31,11 +30,10 @@
       }
     }
   },
-
   "require_directive": {
     "syntax": "-- @require <relative_path>",
-    "purpose": "Specifica dipendenze tra file SQL, gestite da bin/mt",
-    "processing": "bin/mt analizza le direttive e determina l'ordine di esecuzione",
+    "purpose": "Specifica dipendenze tra file SQL, gestite da bin/cmd",
+    "processing": "bin/cmd analizza le direttive e determina l'ordine di esecuzione",
     "path_resolution": "Path relativo alla directory del modulo database",
     "examples": [
       "-- @require sqlite3/schema_install.sql",
@@ -43,7 +41,6 @@
       "-- @require sqlite3/schema_uninstall.sql"
     ]
   },
-
   "file_patterns": {
     "install_entry": {
       "file": "<dbtype>_install.sql",
@@ -76,18 +73,16 @@
       "optional": true
     }
   },
-
   "naming_conventions": {
     "module_directory": "mod_<MODULE_NAME> (con prefisso mod_)",
     "dbtype_directories": "lowercase (sqlite3, mariadb, postgres)",
     "entry_files": "<dbtype>_install.sql, <dbtype>_uninstall.sql",
     "schema_files": "schema_install.sql, schema_uninstall.sql, data.sql"
   },
-
   "forbidden_patterns": {
     "sqlite_dot_commands": {
       "forbidden": ".read, .import, .mode, etc.",
-      "reason": "Comandi SQLite-specifici non portabili e non gestiti da bin/mt",
+      "reason": "Comandi SQLite-specifici non portabili e non gestiti da bin/cmd",
       "use_instead": "-- @require directive"
     },
     "inline_comments_as_content": {
@@ -99,7 +94,6 @@
       "reason": "I file entry point delegano tutto ai file in <dbtype>/"
     }
   },
-
   "complete_structure": {
     "example_module": "mod_risorse",
     "tree": [
@@ -125,12 +119,11 @@
       "└── postgres_uninstall.sql"
     ]
   },
-
   "execution": {
-    "install_command": "mt db install -m <module_name> -t <dbtype>",
-    "uninstall_command": "mt db uninstall -m <module_name> -t <dbtype>",
+    "install_command": "cmd db install -m <module_name> -t <dbtype>",
+    "uninstall_command": "cmd db uninstall -m <module_name> -t <dbtype>",
     "processing": [
-      "1. bin/mt legge il file entry point (<dbtype>_install.sql)",
+      "1. bin/cmd legge il file entry point (<dbtype>_install.sql)",
       "2. Analizza le direttive -- @require",
       "3. Risolve le dipendenze e determina l'ordine di esecuzione",
       "4. Esegue i file SQL nell'ordine corretto"

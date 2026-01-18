@@ -137,7 +137,7 @@
   },
   "module_lifecycle": {
     "export": {
-      "command": "mt module export -n <module_name>",
+      "command": "cmd module export -n <module_name>",
       "output": "/workspace/dist/modules/<module_name>.tar.gz",
       "includes": [
         "api",
@@ -148,7 +148,7 @@
       ]
     },
     "import": {
-      "command": "mt module import -n <module_name> [--force]",
+      "command": "cmd module import -n <module_name> [--force]",
       "source": "/workspace/dist/modules/<module_name>.tar.gz",
       "post_actions": [
         "Installazione dipendenze Python",

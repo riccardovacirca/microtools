@@ -112,7 +112,7 @@ fi
 
 **Gestione progetto:**
 
-* Script unico: `bin/mt`
+* Script unico: `bin/cmd`
 
   * start/stop/restart servizi
   * build microservizi e GUI

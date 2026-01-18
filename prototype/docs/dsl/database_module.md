@@ -28,7 +28,7 @@ Definizione della struttura dei file SQL per un modulo database nel framework Mi
 
 ## Direttiva @require
 
-La direttiva `-- @require` specifica dipendenze tra file SQL ed è gestita da `bin/mt`.
+La direttiva `-- @require` specifica dipendenze tra file SQL ed è gestita da `bin/cmd`.
 
 SYNTAX:
 ```sql
@@ -36,7 +36,7 @@ SYNTAX:
 ```
 
 PROCESSING:
-  - bin/mt analizza le direttive @require
+  - bin/cmd analizza le direttive @require
   - Determina l'ordine di esecuzione dei file
   - Path relativo alla directory del modulo database
 
@@ -151,16 +151,16 @@ EXAMPLE:
 
 INSTALL:
 ```bash
-mt db install -m <module_name> -t <dbtype>
+cmd db install -m <module_name> -t <dbtype>
 ```
 
 UNINSTALL:
 ```bash
-mt db uninstall -m <module_name> -t <dbtype>
+cmd db uninstall -m <module_name> -t <dbtype>
 ```
 
 PROCESSING:
-1. bin/mt legge il file entry point
+1. bin/cmd legge il file entry point
 2. Analizza le direttive `-- @require`
 3. Risolve le dipendenze e determina l'ordine
 4. Esegue i file SQL nell'ordine corretto
