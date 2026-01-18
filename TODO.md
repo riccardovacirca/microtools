@@ -32,14 +32,6 @@
   'wa git pull' e inoltre aggiungere il comando 'wa git sync' per eseguire
   entrambe le operazioni nell'ordine più sensato
 
-- integrare il framework grafico coreui nella cartella gui configurando nel file
-  env la versione utilizzata e importandolo nella build della gui
-
-- verificare che la libreria di logging di microtools utilizzi la cartella di
-  log del progetto
-
-- verificare come vengono configurati i services e la relazione con il file .env
-
 - [OK]
   Installare la libreria redis-py (pip install redis) durante la procedura
   di setup dello script setup.sh
@@ -128,21 +120,24 @@
   Se non esiste nessuna dipendenza rimuovere mod_home e includere mod_status
   in /workspace/.prototype/install/gui/Layout.svelte al suo posto
 
-- rendere minimalista l'output del comando wa
-
 - [OK]
   rinominare il progetto in microtools
 
 - [OK]
   rinominare il comando wa in mt
 
-- il comando mt git push potrebbe avere una opzione -m per il messaggio di commit
-  se non specificato viene usato il messaggio di default
-
 - [OK]
   Verificare che il modulo /workspace/gui/src/mod_status della gui sia collegato
   correttamente all'endpoint /api/status/info ed esponga graficamente il valore
   restituito da esso.
+
+- integrare il framework grafico coreui nella cartella gui configurando nel file
+  env la versione utilizzata e importandolo nella build della gui
+
+- verificare che la libreria di logging di microtools utilizzi la cartella di
+  log del progetto
+
+- verificare come vengono configurati i services e la relazione con il file .env
 
 - aggiungere al file setup.sh l'installazione dei pacchetti apt nano e tree nel
   container di sviluppo 
@@ -167,10 +162,50 @@
   sistema per permettere di trovare il file microtools.a durante la procedura di
   compilazione
 
+- La modalità ammessa per utilizzare i microservizi è attraverso i
+  componenti della GUI in JavaScript nel modo seguente:
+  > La GUI richiede una azione collegata a un microservizio mediante un
+    adapter eseguendo una chiamata verso un endpoint. Es.:
+    curl -X GET http://localhost:2310/api/status/info
+  > Internamente l'adapter invoca il microservizio C++ e ottiene il job_id
+    curl -X POST http://127.0.0.1:9001/api/status/info -> {"job_id":"abc123"}
+  > L'adapter restituisce il job_id alla GUI risalendo lo stack API.
+  > La GUI apre un canale ws verso il microservizio passandogli il job_id
+    ws://127.0.0.1:9001/ws/.../{job_id} e renderizza lo stato dell'operazione
+    in base alla risposta ottenuta:
+    {"status": "work", result: null}
+    {"status": "done", result: null|data|Redis key}
+    {"status": "fail", result: null}
+  > Al termine il microservizio può:
+    > Salvare il risultato su redis e restituire la chiave alla GUI
+    > Restituire direttamente il risultato alla GUI
+
+- Implementare la logica GUI/FastAPI via SSE + FastAPI/Microservice via WS
+
 - L'installazione corrente di fastAPI nella cartella /workspace/api avviene durante la procedura di setup a carico del file setup.sh . questa installazione prevede una struttura modulare del progetto fastAPI . i moduli come ad esempio mod_status devono usare una libreria comune. attualmente stiamo migrando questa libreria. in precedenza questa libreria era implementata nella cartella /workspace/api/common.backup ma adesso la decisione è quella di utilizzare la libreria presente in /workspace/.prototype/install/lib/utils/python così come avviene per la libreria cpp anche questa libreria dovrebbe essere copiata dalla sua posizione attuale che è la posizione di origine nella posizione /workspace/api/utils e utilizzata da questa posizione. questa copia deve avvenire durante la procedura di setup eseguita dal file setup.sh. tutti i moduli dovrebbero usare gli script di questa libreria per le operazioni comuni che per il momento sono parzialmente implementate. Attualmente infatti i moduli python in apii sono solo parzialmente funzionanti perchè la  libreria è ancora incompleta. per il momento occupiamoci del setup che copia la libreria poi implementeremo e correggeremo i moduli
 
+- rimuovere il link simbolico a install e modificare tutti i percorsi in
+  setup.sh, install.sh, e bin/mt
 
+- rinominare .prototype in .microtools e install in prototype
+  in modo da avere una struttura .microtools/prototype che rappresenta il
+  prototipo della applicazione
 
+- rinominare mt in cmd
+
+- rifattorizzare la procedura di release. spostare il file release
+  allo stesso livello di setup e spostare la cartella release dentro
+  .microtools/prototype/release aggiornando i percorsi in modo da esprimere il concetto di un prototipo della release
+
+- rinominare /Users/riccardo/hello/.prototype/PROJECT.md in README.md
+  aggiungere un file LICENSE
+
+- eseguire una revisione manuale di install.sh setup.sh release.sh e cmd
+
+- rendere minimalista l'output del comando cmd
+
+- il comando mt git push potrebbe avere una opzione -m per il messaggio di commit
+  se non specificato viene usato il messaggio di default
 
 
 
