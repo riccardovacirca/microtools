@@ -10,6 +10,18 @@ ARCHITECTURE:
   - no business logic
   - no data transformation
 
+FUNCTION NAMING:
+  - get: for INPUT models (validate incoming data)
+  - set: for OUTPUT models (construct outgoing data)
+
+  INPUT (get):
+  - data from DB, cache, request body, adapter response
+  - examples: model.get(row), model.getCreate(data), model.getUpdate(data)
+
+  OUTPUT (set):
+  - data going back to caller (response)
+  - examples: response_model.set(err, log, out)
+
 STRUCTURE:
 
   Model class:
@@ -20,26 +32,34 @@ STRUCTURE:
   - constraints: ge, le, min_length, max_length, pattern
   - config: extra = "allow" | "forbid" | "ignore"
 
-  get function:
+  get function (INPUT):
   - purpose: validate input and return serialized dict
   - signature: def get(data: Dict[str, Any]) -> Dict[str, Any]
   - docstring: required
   - body: return <Model>(**data).model_dump()
   - raises: ValidationError on invalid data
 
+  set function (OUTPUT):
+  - purpose: construct output and return serialized dict
+  - signature: def set(...params) -> Dict[str, Any]
+  - docstring: required
+  - body: retv = <Model>(...params); return retv.model_dump()
+
 MODEL_TYPES:
 
-  Entity model:
+  Entity model (INPUT):
   - purpose: validate domain entities
   - naming: <Entity>Model
-  - examples: InfoModel, UserModel, OrderModel
+  - function: get
+  - examples: InfoModel, ContattoModel, ListaModel
 
-  Response model:
+  Response model (OUTPUT):
   - purpose: standardize service responses
   - naming: ResponseModel
+  - function: set
   - fields: err (bool), log (str|None), out (Any|None)
   - location: models/response_model.py (one per module)
-  - get signature: def get(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]
+  - set signature: def set(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]
 
 FIELD_TYPES:
   - primitive: int, str, bool, float
@@ -61,7 +81,7 @@ FORBIDDEN:
 
 EXAMPLES:
 
-Entity model (info_model.py):
+Entity model - INPUT (info_model.py):
 
 ```python
 from pydantic import BaseModel, Field
@@ -82,7 +102,7 @@ def get(data: Dict[str, Any]) -> Dict[str, Any]:
     return InfoModel(**data).model_dump()
 ```
 
-Response model (response_model.py):
+Response model - OUTPUT (response_model.py):
 
 ```python
 from pydantic import BaseModel
@@ -94,8 +114,8 @@ class ResponseModel(BaseModel):
     log: str | None
     out: Any | None
 
-def get(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]:
-    """Serializza ResponseModel in dict."""
+def set(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]:
+    """Costruisce e serializza ResponseModel."""
     retv = ResponseModel(err=err, log=log, out=out)
     return retv.model_dump()
 ```

@@ -7,7 +7,7 @@ class ResponseModel(BaseModel):
     log: str | None
     out: Any | None
 
-def get(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]:
-    """Serializza ResponseModel in dict."""
+def set(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]:
+    """Costruisce e serializza ResponseModel."""
     retv = ResponseModel(err=err, log=log, out=out)
     return retv.model_dump()

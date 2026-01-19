@@ -10,6 +10,19 @@
     "business_logic_allowed": false,
     "data_transformation_allowed": false
   },
+  "function_naming": {
+    "rule": "get for INPUT, set for OUTPUT",
+    "input_function": {
+      "name": "get",
+      "purpose": "validate incoming data (from DB, cache, request, adapter)",
+      "examples": ["model.get(row)", "model.getCreate(data)", "model.getUpdate(data)"]
+    },
+    "output_function": {
+      "name": "set",
+      "purpose": "construct outgoing data (response to caller)",
+      "examples": ["response_model.set(err, log, out)"]
+    }
+  },
   "structure": {
     "model_class": {
       "naming": "<Entity>Model (PascalCase)",
@@ -26,29 +39,37 @@
       }
     },
     "get_function": {
-      "purpose": "validate input and return serialized dict",
+      "purpose": "validate INPUT and return serialized dict",
       "signature": "def get(data: Dict[str, Any]) -> Dict[str, Any]",
       "docstring": "required",
       "body": "return <Model>(**data).model_dump()",
       "exceptions": "raises ValidationError on invalid data"
+    },
+    "set_function": {
+      "purpose": "construct OUTPUT and return serialized dict",
+      "signature": "def set(...params) -> Dict[str, Any]",
+      "docstring": "required",
+      "body": "retv = <Model>(...params)\nreturn retv.model_dump()"
     }
   },
   "model_types": {
     "entity_model": {
-      "purpose": "validate domain entities",
+      "purpose": "validate domain entities (INPUT)",
       "naming": "<Entity>Model",
-      "example": "InfoModel, UserModel, OrderModel"
+      "function": "get",
+      "example": "InfoModel, ContattoModel, ListaModel"
     },
     "response_model": {
-      "purpose": "standardize service responses",
+      "purpose": "standardize service responses (OUTPUT)",
       "naming": "ResponseModel",
+      "function": "set",
       "fields": {
         "err": "bool",
         "log": "str | None",
         "out": "Any | None"
       },
-      "get_function": {
-        "signature": "def get(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]",
+      "set_function": {
+        "signature": "def set(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]",
         "body": "retv = ResponseModel(err=err, log=log, out=out)\nreturn retv.model_dump()"
       },
       "location": "models/response_model.py (one per module)"
@@ -73,7 +94,7 @@
     "returning_model_instance"
   ],
   "examples": {
-    "entity_model": {
+    "entity_model_input": {
       "file": "info_model.py",
       "code": [
         "from pydantic import BaseModel, Field",
@@ -94,7 +115,7 @@
         "    return InfoModel(**data).model_dump()"
       ]
     },
-    "response_model": {
+    "response_model_output": {
       "file": "response_model.py",
       "code": [
         "from pydantic import BaseModel",
@@ -106,8 +127,8 @@
         "    log: str | None",
         "    out: Any | None",
         "",
-        "def get(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]:",
-        "    \"\"\"Serializza ResponseModel in dict.\"\"\"",
+        "def set(err: bool, log: str | None, out: Any | None) -> Dict[str, Any]:",
+        "    \"\"\"Costruisce e serializza ResponseModel.\"\"\"",
         "    retv = ResponseModel(err=err, log=log, out=out)",
         "    return retv.model_dump()"
       ]

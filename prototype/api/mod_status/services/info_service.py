@@ -41,4 +41,4 @@ async def get() -> Dict[str, Any]:
     except Exception as e:
         err = True
         log = str(e) or "Unknown error"
-    return response_model.get(err, log, out)
+    return response_model.set(err, log, out)

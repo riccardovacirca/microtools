@@ -40,7 +40,7 @@
     "single_try_block": true,
     "nested_try_forbidden": true,
     "single_exit_point": true,
-    "return_pattern": "response_model.get(err, log, out)"
+    "return_pattern": "response_model.set(err, log, out)"
   },
   "error_handling": {
     "leak_exceptions": false,
@@ -68,13 +68,13 @@
       "log": "str | None - error message if err=true, None if success",
       "out": "Dict[str, Any] | None - data if success, None if error"
     },
-    "success": "response_model.get(False, None, validated_data)",
-    "error": "response_model.get(True, 'error message', None)"
+    "success": "response_model.set(False, None, validated_data)",
+    "error": "response_model.set(True, 'error message', None)"
   },
   "data_flow": {
     "source": ["helper_function", "adapter"],
     "validation": "model.get(data)",
-    "output": "response_model.get(err, log, out)"
+    "output": "response_model.set(err, log, out)"
   },
   "function_parameters": {
     "rule": "no_default_values",
@@ -138,7 +138,7 @@
       "    except Exception as e:",
       "        err = True",
       "        log = str(e) or 'Unknown error'",
-      "    return response_model.get(err, log, out)"
+      "    return response_model.set(err, log, out)"
     ]
   }
 }

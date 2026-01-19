@@ -35,7 +35,7 @@ STRUCTURE:
 CONTROL_FLOW:
   - single try block (no nesting)
   - single exit point
-  - return pattern: response_model.get(err, log, out)
+  - return pattern: response_model.set(err, log, out)
 
 ERROR_HANDLING:
   - no exceptions leaked outside service
@@ -49,13 +49,13 @@ ERROR_HANDLING:
 RESPONSE_MODEL:
   - MANDATORY for all services
   - fields: err (bool), log (str|None), out (Dict|None)
-  - success: response_model.get(False, None, validated_data)
-  - error: response_model.get(True, "message", None)
+  - success: response_model.set(False, None, validated_data)
+  - error: response_model.set(True, "message", None)
 
 DATA_FLOW:
   1. helper function or adapter for raw data
-  2. model.get(data) for validation
-  3. response_model.get(err, log, out) for output
+  2. model.get(data) for INPUT validation
+  3. response_model.set(err, log, out) for OUTPUT
 
 FUNCTION_PARAMETERS:
   - NO default values allowed
@@ -117,5 +117,5 @@ async def get() -> Dict[str, Any]:
     except Exception as e:
         err = True
         log = str(e) or "Unknown error"
-    return response_model.get(err, log, out)
+    return response_model.set(err, log, out)
 ```
